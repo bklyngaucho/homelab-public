@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Homelab</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+  :root {
+    --bg:       #0d1117;
+    --surface:  #161b22;
+    --border:   #30363d;
+    --teal:     #0ea5e9;
+    --teal-dim: #0c4a6e;
+    --green:    #10b981;
+    --slate:    #94a3b8;
+    --text:     #e2e8f0;
+    --muted:    #64748b;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    font-size: 15px;
+    line-height: 1.6;
+  }
+
+  /* ── Header ── */
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 2rem 0 1.5rem;
+    text-align: center;
+  }
+  .badge-row {
+    display: flex;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+  }
+  .badge {
+    background: var(--teal-dim);
+    border: 1px solid var(--teal);
+    color: var(--teal);
+    border-radius: 4px;
+    padding: 0.15rem 0.6rem;
+    font-size: 0.75rem;
+    font-family: monospace;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+  h1 {
+    font-size: 2.4rem;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: -0.02em;
+  }
+  h1 span { color: var(--teal); }
+  .tagline {
+    color: var(--slate);
+    margin-top: 0.4rem;
+    font-size: 1rem;
+  }
+
+  /* ── Layout ── */
+  .container { max-width: 1100px; margin: 0 auto; padding: 0 1.5rem; }
+
+  section { padding: 2.5rem 0; }
+  section + section { border-top: 1px solid var(--border); }
+
+  h2 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--slate);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 1.25rem;
+  }
+  h2 span { color: var(--teal); margin-right: 0.4rem; }
+
+  /* ── Stat bar ── */
+  .stats {
+    display: flex;
+    gap: 2rem;
+    justify-content: center;
+    padding: 1.5rem 0;
+    flex-wrap: wrap;
+  }
+  .stat { text-align: center; }
+  .stat-num {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--teal);
+    display: block;
+    line-height: 1;
+  }
+  .stat-label {
+    font-size: 0.8rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-top: 0.3rem;
+  }
+
+  /* ── Cards ── */
+  .card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1rem;
+  }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.25rem 1.4rem;
+    text-decoration: none;
+    color: var(--text);
+    transition: border-color 0.15s, transform 0.15s;
+    display: block;
+  }
+  .card:hover {
+    border-color: var(--teal);
+    transform: translateY(-2px);
+  }
+  .card-icon {
+    font-size: 1.4rem;
+    margin-bottom: 0.5rem;
+    display: block;
+  }
+  .card-title {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: #fff;
+    margin-bottom: 0.3rem;
+  }
+  .card-desc {
+    font-size: 0.82rem;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+  .card-tag {
+    display: inline-block;
+    margin-top: 0.6rem;
+    font-size: 0.7rem;
+    font-family: monospace;
+    color: var(--teal);
+    background: rgba(14,165,233,0.1);
+    padding: 0.1rem 0.45rem;
+    border-radius: 3px;
+  }
+
+  /* ── Link list ── */
+  .link-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 0.5rem;
+  }
+  .link-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.55rem 0.8rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    text-decoration: none;
+    color: var(--slate);
+    font-size: 0.85rem;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .link-item:hover { color: var(--teal); border-color: var(--teal); }
+  .link-item .icon { font-size: 0.9rem; flex-shrink: 0; }
+
+  /* ── Hardware table ── */
+  .hw-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.87rem;
+  }
+  .hw-table th {
+    text-align: left;
+    color: var(--muted);
+    font-weight: 500;
+    padding: 0.4rem 0.8rem;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .hw-table td {
+    padding: 0.55rem 0.8rem;
+    border-bottom: 1px solid rgba(48,54,61,0.5);
+    color: var(--text);
+    vertical-align: top;
+  }
+  .hw-table tr:last-child td { border-bottom: none; }
+  .hw-table code {
+    font-family: monospace;
+    font-size: 0.8rem;
+    color: var(--teal);
+    background: rgba(14,165,233,0.1);
+    padding: 0.1rem 0.35rem;
+    border-radius: 3px;
+  }
+  .hw-role { color: var(--slate); }
+
+  /* ── Diagram ── */
+  #diagram-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.5rem;
+    overflow-x: auto;
+  }
+  #diagram-wrap .mermaid {
+    display: flex;
+    justify-content: center;
+  }
+
+  /* ── Footer ── */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 1.5rem 0;
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.8rem;
+  }
+  footer a { color: var(--teal); text-decoration: none; }
+  footer a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="container">
+    <div class="badge-row">
+      <span class="badge">22 containers</span>
+      <span class="badge">36 TB ZFS</span>
+      <span class="badge">2 Gbps fiber</span>
+      <span class="badge">Claude-assisted</span>
+    </div>
+    <h1>Home<span>lab</span></h1>
+    <p class="tagline">Infrastructure as code — media stack, DR tooling, and AI-assisted operations</p>
+  </div>
+</header>
+
+<main class="container">
+
+  <!-- Stats -->
+  <section>
+    <div class="stats">
+      <div class="stat"><span class="stat-num">22</span><span class="stat-label">Containers</span></div>
+      <div class="stat"><span class="stat-num">36 TB</span><span class="stat-label">ZFS Storage</span></div>
+      <div class="stat"><span class="stat-num">~30 min</span><span class="stat-label">DR RTO</span></div>
+      <div class="stat"><span class="stat-num">3-2-1</span><span class="stat-label">Backup Rule</span></div>
+      <div class="stat"><span class="stat-num">10 GbE</span><span class="stat-label">Storage Link</span></div>
+    </div>
+  </section>
+
+  <!-- Rendered pages -->
+  <section>
+    <h2><span>◈</span>Pages</h2>
+    <div class="card-grid">
+
+      <a class="card" href="dr/playbook.html">
+        <span class="card-icon">🚨</span>
+        <div class="card-title">DR Playbook</div>
+        <div class="card-desc">Interactive disaster recovery checklist. Step-by-step restore from Duplicati backup to full stack, targeting ~30 min RTO.</div>
+        <span class="card-tag">dr/playbook.html</span>
+      </a>
+
+      <a class="card" href="docs/homelab-baseline.html">
+        <span class="card-icon">📐</span>
+        <div class="card-title">Homelab Baseline</div>
+        <div class="card-desc">Architecture overview and service inventory. Hardware, networking, container stack, and storage configuration at a glance.</div>
+        <span class="card-tag">docs/homelab-baseline.html</span>
+      </a>
+
+    </div>
+  </section>
+
+  <!-- Docs -->
+  <section>
+    <h2><span>◈</span>Documentation</h2>
+    <div class="link-list">
+      <a class="link-item" href="https://github.com/yourusername/homelab/blob/main/docs/RUNBOOK-INDEX.md" target="_blank">
+        <span class="icon">📚</span> Runbook Index
+      </a>
+      <a class="link-item" href="https://github.com/yourusername/homelab/blob/main/docs/operations.md" target="_blank">
+        <span class="icon">🔧</span> Operations
+      </a>
+      <a class="link-item" href="https://github.com/yourusername/homelab/blob/main/docs/external-access.md" target="_blank">
+        <span class="icon">🌍</span> External Access
+      </a>
+      <a class="link-item" href="https://github.com/yourusername/homelab/blob/main/docs/storage.md" target="_blank">
+        <span class="icon">💾</span> Storage
+      </a>
+      <a class="link-item" href="https://github.com/yourusername/homelab/blob/main/docs/change-checklist.md" target="_blank">
+        <span class="icon">✅</span> Change Checklist
+      </a>
+      <a class="link-item" href="https://github.com/yourusername/homelab/blob/main/docs/iot-vlan-plan.md" target="_blank">
+        <span class="icon">🏠</span> IoT VLAN Plan
+      </a>
+      <a class="link-item" href="https://github.com/yourusername/homelab/blob/main/docs/migration-plan.md" target="_blank">
+        <span class="icon">🔀</span> Migration Plan
+      </a>
+      <a class="link-item" href="https://github.com/yourusername/homelab/blob/main/docs/ups-integration.md" target="_blank">
+        <span class="icon">⚡</span> UPS Integration
+      </a>
+      <a class="link-item" href="https://github.com/yourusername/homelab/blob/main/tdarr/FLOWS.md" target="_blank">
+        <span class="icon">🎬</span> Tdarr Flows
+      </a>
+      <a class="link-item" href="https://github.com/yourusername/homelab/blob/main/CHANGELOG.md" target="_blank">
+        <span class="icon">📝</span> Changelog
+      </a>
+      <a class="link-item" href="https://github.com/yourusername/homelab/blob/main/CLAUDE.md" target="_blank">
+        <span class="icon">🤖</span> Claude Context
+      </a>
+      <a class="link-item" href="https://github.com/yourusername/homelab/blob/main/compose/docker-compose.yml" target="_blank">
+        <span class="icon">🐳</span> docker-compose.yml
+      </a>
+    </div>
+  </section>
+
+  <!-- Hardware -->
+  <section>
+    <h2><span>◈</span>Hardware</h2>
+    <table class="hw-table">
+      <thead>
+        <tr><th>Host</th><th>Role</th><th>IP</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>UniFi UXG-Fiber</td>
+          <td class="hw-role">Firewall / Router / DHCP</td>
+          <td><code>192.168.1.1</code></td>
+        </tr>
+        <tr>
+          <td>Zyxel XGS1210-12</td>
+          <td class="hw-role">LAN Switch — 2×10GbE · 2×2.5GbE · 8×1GbE</td>
+          <td><code>192.168.1.2</code></td>
+        </tr>
+        <tr>
+          <td>NAS01</td>
+          <td class="hw-role">Primary compute — Container Station (22 containers) · bond0 2×1GbE · 10GbE storage</td>
+          <td><code>192.168.1.33</code></td>
+        </tr>
+        <tr>
+          <td>NAS02 / TrueNAS</td>
+          <td class="hw-role">ZFS storage — 36 TB usable · 4× mirror vdevs · Tdarr node (4 CPU workers) · 10GbE storage</td>
+          <td><code>192.168.1.31</code></td>
+        </tr>
+        <tr>
+          <td>Lenovo P360</td>
+          <td class="hw-role">AI Workstation — Ollama / Open WebUI (separate stack)</td>
+          <td><code>—</code></td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- Network diagram -->
+  <section>
+    <h2><span>◈</span>Network Diagram</h2>
+    <div id="diagram-wrap">
+      <div class="mermaid">
+graph TB
+    INET(["☁ Internet\n2 Gbps Fiber"])
+    CF["Cloudflare\n*.yourdomain.com\n→ YOUR_PUBLIC_IP"]
+    UXG["UniFi UXG-Fiber\n192.168.1.1\nFirewall / Router"]
+    ZYX["Zyxel XGS1210-12\n192.168.1.2\n2x10GbE · 2x2.5GbE · 8x1GbE"]
+
+    INET -->|"fiber"| UXG
+    CF -->|"proxied HTTPS"| UXG
+    UXG -->|"1GbE uplink"| ZYX
+
+    NAS01["NAS01\n192.168.1.33\nbond0 · 2x1GbE\nContainer Station\n22 containers"]
+    NAS02["NAS02 / TrueNAS\n192.168.1.31\nZFS RAID-10\n36 TB usable"]
+    P360["Lenovo P360\nAI Workstation\nOllama / Open WebUI"]
+
+    ZYX -->|"2x1GbE LAG"| NAS01
+    ZYX -->|"1GbE mgmt"| NAS02
+    ZYX --- P360
+
+    NAS01_STOR["NAS01 Aquantia\n10.10.10.33 · MTU 9000"]
+    T440_STOR["NAS02 Chelsio\n10.10.10.31 · MTU 9000"]
+
+    NAS01 --- NAS01_STOR
+    NAS02 --- T440_STOR
+    NAS01_STOR <-->|"direct cable\n10GbE · ~780 MB/s"| T440_STOR
+
+    NFS_MEDIA["media_ds\n17.4 TB"]
+    NFS_DL["downloads_ds"]
+    NFS_BK["backups"]
+
+    T440_STOR -->|"NFS"| NFS_MEDIA
+    T440_STOR -->|"NFS"| NFS_DL
+    T440_STOR -->|"NFS"| NFS_BK
+    NFS_MEDIA -->|"HybridMount"| NAS01_STOR
+    NFS_DL    -->|"HybridMount"| NAS01_STOR
+    NFS_BK    -->|"HybridMount"| NAS01_STOR
+
+    TECH["Technitium DNS\n192.168.1.33:53\n*.yourdomain.com\nOISD + AdGuard"]
+    NAS01 --- TECH
+
+    subgraph CONTAINERS["Docker · homelab network · bridge mode"]
+        NPM["Nginx Proxy Manager\n:80 / :443"]
+        PLEX["Plex\n:32400"]
+        SEERR["Seerr\n:5055"]
+        ARR["ARR Stack\nSonarr · Radarr · Bazarr\nProwlarr"]
+        DL["TransmissionVPN\n+ SABnzbd\nPIA VPN"]
+        TDARR["Tdarr\nGPU transcode\nNVENC + VAAPI"]
+        DUP["Duplicati\ndaily 2 AM"]
+        TAIL["Tailscale\nsubnet router"]
+    end
+
+    NAS01 --- CONTAINERS
+    NPM -->|"proxy"| PLEX
+    NPM -->|"proxy"| SEERR
+    ARR -->|"send"| DL
+    PLEX -->|"reads"| NFS_MEDIA
+    TDARR -->|"reads/writes"| NFS_MEDIA
+    DUP -->|"backup"| NFS_BK
+
+    UXG -->|"port fwd\n80/443/32400"| NPM
+
+    IDRAC["Dell iDRAC\n192.168.1.4\nRedfish API"]
+    NAS02 --- IDRAC
+
+    classDef edge      fill:#1a3a5c,stroke:#4a90d9,color:#fff
+    classDef compute   fill:#1a4a2a,stroke:#4ab86a,color:#fff
+    classDef storage   fill:#4a2a1a,stroke:#d98c4a,color:#fff
+    classDef network   fill:#2a1a4a,stroke:#8c4ad9,color:#fff
+    classDef container fill:#1a2a3a,stroke:#4a8cb8,color:#ddd
+    classDef nfs       fill:#3a3a1a,stroke:#b8b84a,color:#fff
+
+    class INET,CF edge
+    class UXG,ZYX network
+    class NAS01,P360 compute
+    class NAS02,IDRAC storage
+    class NAS01_STOR,T440_STOR network
+    class NFS_MEDIA,NFS_DL,NFS_BK nfs
+    class TECH,NPM,PLEX,SEERR,ARR,DL,TDARR,DUP,TAIL container
+      </div>
+    </div>
+  </section>
+
+  <!-- Container stack -->
+  <section>
+    <h2><span>◈</span>Container Stack</h2>
+    <div class="link-list">
+      <span class="link-item"><span class="icon">📺</span> Plex — media server</span>
+      <span class="link-item"><span class="icon">📡</span> Sonarr — TV</span>
+      <span class="link-item"><span class="icon">🎬</span> Radarr — movies</span>
+      <span class="link-item"><span class="icon">4️⃣</span> Radarr4K — 4K movies</span>
+      <span class="link-item"><span class="icon">💬</span> Bazarr — subtitles</span>
+      <span class="link-item"><span class="icon">🔍</span> Prowlarr — indexers</span>
+      <span class="link-item"><span class="icon">🛡️</span> FlareSolverr — CF bypass</span>
+      <span class="link-item"><span class="icon">📰</span> SABnzbd — usenet</span>
+      <span class="link-item"><span class="icon">🔒</span> TransmissionVPN — torrent + PIA</span>
+      <span class="link-item"><span class="icon">🎯</span> Seerr — media requests</span>
+      <span class="link-item"><span class="icon">📊</span> Tautulli — Plex analytics</span>
+      <span class="link-item"><span class="icon">⚙️</span> Tdarr — media transcode</span>
+      <span class="link-item"><span class="icon">🔄</span> Recyclarr — quality profiles</span>
+      <span class="link-item"><span class="icon">🌐</span> Nginx Proxy Manager</span>
+      <span class="link-item"><span class="icon">📄</span> Stirling PDF</span>
+      <span class="link-item"><span class="icon">💾</span> Duplicati — backup</span>
+      <span class="link-item"><span class="icon">❤️</span> Uptime Kuma — monitoring</span>
+      <span class="link-item"><span class="icon">🏠</span> Technitium DNS + ad-block</span>
+      <span class="link-item"><span class="icon">🚀</span> Watchtower — auto-updates</span>
+      <span class="link-item"><span class="icon">🔑</span> Tailscale — WireGuard VPN</span>
+      <span class="link-item"><span class="icon">📋</span> Organizr — dashboard</span>
+      <span class="link-item"><span class="icon">🎛️</span> Agregarr — multi-Radarr</span>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="container">
+    <a href="https://github.com/yourusername/homelab" target="_blank">github.com/yourusername/homelab</a>
+    &nbsp;·&nbsp;
+    Infrastructure as code, Claude-assisted
+  </div>
+</footer>
+
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'dark',
+    themeVariables: {
+      darkMode: true,
+      background: '#161b22',
+      primaryColor: '#1a3a5c',
+      primaryTextColor: '#e2e8f0',
+      lineColor: '#4a90d9',
+      fontSize: '13px'
+    }
+  });
+</script>
+</body>
+</html>
