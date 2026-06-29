@@ -1,0 +1,575 @@
+name: homelab
+
+# ============================================================
+# Homelab Container Stack
+# Runs on NAS01 Container Station (QTS)
+#
+# Prerequisites:
+#   - .env file present and filled in (copy from .env.template)
+#   - /share/Appdata share created on NAS01, chmod 777
+#   - NAS02 NFS network drives connected in NAS01 File Station
+#   - TUN kernel module loaded (verified: tun 49152 3 vhost_net)
+#   - no_root_squash set on downloads_ds and backups in TrueNAS
+# ============================================================
+
+services:
+
+  # ==========================================================
+  # MEDIA SERVER
+  # ==========================================================
+
+  plex:
+    container_name: plex
+    image: lscr.io/linuxserver/plex:latest
+    hostname: Plex
+    environment:
+      PUID: ${PUID}
+      PGID: ${PGID}
+      TZ: ${TZ}
+      VERSION: docker
+      # PLEX_CLAIM removed — server already claimed; token only needed on first run
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: all
+      LD_LIBRARY_PATH: /usr/local/nvidia/lib
+    devices:
+      - /dev/dri:/dev/dri          # Intel QuickSync / VAAPI
+      - /dev/nvidia0:/dev/nvidia0
+      - /dev/nvidiactl:/dev/nvidiactl
+      - /dev/nvidia-uvm:/dev/nvidia-uvm
+      - /dev/nvidia-uvm-tools:/dev/nvidia-uvm-tools
+    ports:
+      - 32400:32400/tcp
+    restart: unless-stopped
+    mem_limit: 4g
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:32400/identity"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    volumes:
+      - ${APPDATA_PATH}/plex:/config
+      - ${MEDIA_DS}:/media
+      - /share/CACHEDEV1_DATA/.qpkg/NVIDIA_GPU_DRV/nvenc-libs:/usr/local/nvidia/lib:ro  # curated NVENC libs (no libdrm)
+
+  # ==========================================================
+  # ARR STACK
+  # ==========================================================
+
+  sonarr:
+    container_name: sonarr
+    image: lscr.io/linuxserver/sonarr:latest
+    hostname: Sonarr
+    environment:
+      PUID: ${PUID}
+      PGID: ${PGID}
+      TZ: ${TZ}
+    ports:
+      - 8989:8989
+    restart: unless-stopped
+    mem_limit: 1g
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8989/ping"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    depends_on:
+      - prowlarr
+    volumes:
+      - ${APPDATA_PATH}/sonarr:/config
+      - ${MEDIA_DS}:/storage/media_ds
+      - ${DOWNLOADS_DS}:/storage/downloads_ds
+
+  radarr:
+    container_name: radarr
+    image: lscr.io/linuxserver/radarr:latest
+    hostname: Radarr
+    environment:
+      PUID: ${PUID}
+      PGID: ${PGID}
+      TZ: ${TZ}
+    ports:
+      - 7878:7878
+    restart: unless-stopped
+    mem_limit: 1g
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:7878/ping"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    depends_on:
+      - prowlarr
+    volumes:
+      - ${APPDATA_PATH}/radarr:/config
+      - ${MEDIA_DS}:/storage/media_ds
+      - ${DOWNLOADS_DS}:/storage/downloads_ds
+
+  radarr4k:
+    container_name: radarr4k
+    image: lscr.io/linuxserver/radarr:latest
+    hostname: Radarr4K
+    environment:
+      PUID: ${PUID}
+      PGID: ${PGID}
+      TZ: ${TZ}
+    ports:
+      - 7070:7878
+    restart: unless-stopped
+    mem_limit: 1g
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:7878/ping"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    depends_on:
+      - prowlarr
+    volumes:
+      - ${APPDATA_PATH}/radarr4k:/config
+      - ${MEDIA_DS}:/storage/media_ds
+      - ${DOWNLOADS_DS}:/storage/downloads_ds
+
+  bazarr:
+    container_name: bazarr
+    image: lscr.io/linuxserver/bazarr:latest
+    hostname: Bazarr
+    environment:
+      PUID: ${PUID}
+      PGID: ${PGID}
+      TZ: ${TZ}
+    ports:
+      - 6767:6767
+    restart: unless-stopped
+    mem_limit: 512m
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:6767/"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    depends_on:
+      - sonarr
+      - radarr
+    volumes:
+      - ${APPDATA_PATH}/bazarr:/config
+      - ${MEDIA_DS}:/storage/media_ds
+
+  prowlarr:
+    container_name: prowlarr
+    image: lscr.io/linuxserver/prowlarr:latest
+    hostname: Prowlarr
+    environment:
+      PUID: ${PUID}
+      PGID: ${PGID}
+      TZ: ${TZ}
+    ports:
+      - 9696:9696
+    restart: unless-stopped
+    mem_limit: 512m
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:9696/ping"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    volumes:
+      - ${APPDATA_PATH}/prowlarr:/config
+
+  flaresolverr:
+    container_name: flaresolverr
+    image: ghcr.io/flaresolverr/flaresolverr:latest
+    hostname: FlareSolverr
+    environment:
+      TZ: ${TZ}
+      LOG_LEVEL: info
+      LOG_HTML: "false"
+      CAPTCHA_SOLVER: none
+      PORT: "8191"
+      DISABLE_MEDIA: "true"
+    ports:
+      - 8191:8191
+    shm_size: '1gb'
+    mem_limit: 1g
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8191/"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  # ==========================================================
+  # DOWNLOAD CLIENTS
+  # ==========================================================
+
+  sabnzbd:
+    container_name: sabnzbd
+    image: lscr.io/linuxserver/sabnzbd:latest
+    hostname: SABnzbd
+    environment:
+      PUID: ${PUID}
+      PGID: ${PGID}
+      TZ: ${TZ}
+    ports:
+      - 192.168.1.33:8787:8080    # Web UI — LAN-only
+    restart: unless-stopped
+    mem_limit: 1g
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8080/"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    volumes:
+      - ${APPDATA_PATH}/sabnzbd:/config
+      - ${DOWNLOADS_DS}:/storage/downloads_ds
+
+  transmissionvpn:
+    container_name: transmissionvpn
+    image: haugene/transmission-openvpn:latest
+    hostname: TransmissionVPN
+    cap_add:
+      - NET_ADMIN
+    environment:
+      PUID: ${PUID}
+      PGID: ${PGID}
+      TZ: ${TZ}
+      OPENVPN_PROVIDER: pia
+      OPENVPN_USERNAME: ${PIA_USER}
+      OPENVPN_PASSWORD: ${PIA_PASS}
+      OPENVPN_CONFIG: ${OPENVPN_CONFIG}
+      LOCAL_NETWORK: 192.168.1.0/24
+      TRANSMISSION_HOME: /config
+      TRANSMISSION_DOWNLOAD_DIR: /storage/downloads_ds/completed
+      TRANSMISSION_INCOMPLETE_DIR: /storage/downloads_ds/incomplete
+      TRANSMISSION_WATCH_DIR: /storage/downloads_ds/watch
+      TRANSMISSION_ENCRYPTION: "2"
+    ports:
+      - 9091:9091
+    restart: unless-stopped
+    mem_limit: 1g
+    healthcheck:
+      test: ["CMD-SHELL", "/etc/scripts/healthcheck.sh"]
+      interval: 60s
+      timeout: 20s
+      retries: 3
+      start_period: 30s
+    volumes:
+      - ${APPDATA_PATH}/transmissionvpn:/config
+      - ${DOWNLOADS_DS}:/storage/downloads_ds
+
+  # ==========================================================
+  # REQUEST MANAGEMENT
+  # ==========================================================
+
+  seerr:
+    container_name: seerr
+    image: ghcr.io/hotio/seerr:latest
+    hostname: Seerr
+    environment:
+      PUID: ${PUID}
+      PGID: ${PGID}
+      TZ: ${TZ}
+    ports:
+      - 5055:5055
+    restart: unless-stopped
+    mem_limit: 512m
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:5055/api/v1/status"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    volumes:
+      - ${APPDATA_PATH}/seerr:/config
+
+  # ==========================================================
+  # DASHBOARDS & MANAGEMENT
+  # ==========================================================
+
+  organizr:
+    container_name: organizr
+    image: ghcr.io/organizr/organizr:latest
+    hostname: Organizr
+    environment:
+      PUID: ${PUID}
+      PGID: ${PGID}
+      TZ: ${TZ}
+      branch: v2-master
+      fpm: "false"
+    ports:
+      - 8006:80
+    restart: unless-stopped
+    mem_limit: 256m
+    volumes:
+      - ${APPDATA_PATH}/organizr:/config
+
+  tautulli:
+    container_name: tautulli
+    image: lscr.io/linuxserver/tautulli:latest
+    hostname: Tautulli
+    environment:
+      PUID: ${PUID}
+      PGID: ${PGID}
+      TZ: ${TZ}
+    ports:
+      - 8181:8181
+    restart: unless-stopped
+    mem_limit: 512m
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8181/status"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    volumes:
+      - ${APPDATA_PATH}/tautulli:/config
+
+  # ==========================================================
+  # BACKUP
+  # ==========================================================
+
+  duplicati:
+    container_name: duplicati
+    image: lscr.io/linuxserver/duplicati:latest
+    hostname: Duplicati
+    environment:
+      PUID: ${PUID}
+      PGID: ${PGID}
+      TZ: ${TZ}
+      SETTINGS_ENCRYPTION_KEY: ${DUPLICATI_ENCRYPTION_KEY}
+      DUPLICATI__WEBSERVICE_PASSWORD: ${DUPLICATI_WEB_PASSWORD}
+    ports:
+      - 8200:8200
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8200/"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    volumes:
+      - ${APPDATA_PATH}/duplicati:/config
+      - ${BACKUPS}:/backups        # destination: NAS02 backups share
+      - ${APPDATA_PATH}:/source:ro  # source: all container appdata (read-only — backup only needs to read)
+
+  # ==========================================================
+  # TOOLS
+  # ==========================================================
+
+  stirling-pdf:
+    container_name: stirling-pdf
+    image: stirlingtools/stirling-pdf:latest
+    hostname: StirlingPDF
+    environment:
+      PUID: ${PUID}
+      PGID: ${PGID}
+      TZ: ${TZ}
+      DOCKER_ENABLE_SECURITY: "false"  # security/login disabled intentionally — see audit if you want to add auth
+      SYSTEM_FRONTENDURL: "https://pdf.yourdomain.com"  # required for mobile QR scanner feature
+    ports:
+      - 8585:8080
+    restart: unless-stopped
+    mem_limit: 2g  # idle ~888 MiB; 2g gives headroom for OCR/conversion spikes
+    volumes:
+      - ${APPDATA_PATH}/stirling-pdf/configs:/configs
+      - ${APPDATA_PATH}/stirling-pdf/logs:/logs
+
+  tdarr:
+    container_name: tdarr
+    image: ghcr.io/haveagitgat/tdarr:2.80.01
+    hostname: Tdarr
+    devices:
+      - /dev/nvidia0:/dev/nvidia0
+      - /dev/nvidiactl:/dev/nvidiactl
+      - /dev/nvidia-uvm:/dev/nvidia-uvm
+      - /dev/nvidia-uvm-tools:/dev/nvidia-uvm-tools
+    environment:
+      PUID: ${PUID}
+      PGID: ${PGID}
+      TZ: ${TZ}
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: all
+      LD_LIBRARY_PATH: /usr/local/nvidia/lib:/usr/local/nvidia/lib64
+      serverIP: localhost
+      serverPort: "8266"
+      webUIPort: "8265"
+      internalNode: "true"
+      internalWorkerCount: "1"
+      nodeName: NAS01-node
+    ports:
+      - 8265:8265   # Web UI
+      - 8266:8266   # Node communication
+    labels:
+      com.centurylinklabs.watchtower.enable: "false"  # pinned to 2.80.01 — update manually alongside NAS02-node
+    restart: unless-stopped
+    mem_limit: 4g
+    cpus: "3.0"  # i7-7700T has 8 threads; cap at 3 to leave headroom for Plex et al
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8265/api/v2/status"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    volumes:
+      - ${APPDATA_PATH}/tdarr/server:/app/server
+      - ${APPDATA_PATH}/tdarr/configs:/app/configs
+      - ${APPDATA_PATH}/tdarr/logs:/app/logs
+      - ${MEDIA_DS}:/media              # same mount as Plex — read/write for in-place transcoding
+      - ${TDARR_TRANSCODE_CACHE}:/temp  # scratch space — use local NAS01 storage, not NFS
+      - /share/CACHEDEV1_DATA/.qpkg/NVIDIA_GPU_DRV/usr/lib:/usr/local/nvidia/lib:ro  # NVIDIA encode libs for NVENC
+
+  # ==========================================================
+  # MONITORING
+  # ==========================================================
+
+  uptimekuma:
+    container_name: uptimekuma
+    image: louislam/uptime-kuma:2
+    hostname: UptimeKuma
+    environment:
+      TZ: ${TZ}
+    ports:
+      - 3001:3001
+    restart: unless-stopped
+    mem_limit: 256m
+    volumes:
+      - ${APPDATA_PATH}/uptimekuma:/app/data
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  # ==========================================================
+  # REVERSE PROXY
+  # ==========================================================
+
+  npm:
+    container_name: npm
+    image: jc21/nginx-proxy-manager:latest
+    hostname: NginxProxyManager
+    ports:
+      - 80:80                    # HTTP — all interfaces required for WAN + Let's Encrypt challenges
+      - 443:443                  # HTTPS — all interfaces required for WAN traffic
+      - 192.168.1.33:81:81      # Admin UI — LAN-only (no reason to be WAN-accessible)
+    restart: unless-stopped
+    mem_limit: 256m
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:81"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    volumes:
+      - ${APPDATA_PATH}/npm/data:/data
+      - ${APPDATA_PATH}/npm/letsencrypt:/etc/letsencrypt
+
+  # ==========================================================
+  # DNS SERVER
+  # ==========================================================
+
+  technitium:
+    container_name: technitium
+    image: technitium/dns-server:latest
+    hostname: Technitium
+    environment:
+      TZ: ${TZ}
+      DNS_SERVER_DOMAIN: technitium.yourdomain.com
+      DNS_SERVER_ADMIN_PASSWORD: ${TECHNITIUM_ADMIN_PASSWORD}
+    ports:
+      - "192.168.1.33:53:53/tcp"    # DNS — bound to LAN IP only (avoids dnsmasq conflict on Docker bridges)
+      - "192.168.1.33:53:53/udp"
+      - "192.168.1.33:5380:5380"    # Web UI — LAN-only (admin console; no reason to be WAN-accessible)
+    restart: unless-stopped
+    mem_limit: 512m
+    healthcheck:
+      test: ["CMD", "/usr/bin/bash", "-c", "echo > /dev/tcp/localhost/5380"]  # curl not in image; bash TCP check verifies web UI is up
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    volumes:
+      - ${APPDATA_PATH}/technitium:/etc/dns
+
+  # ==========================================================
+  # QUALITY PROFILE SYNC
+  # ==========================================================
+
+  recyclarr:
+    container_name: recyclarr
+    image: ghcr.io/recyclarr/recyclarr:latest
+    hostname: Recyclarr
+    environment:
+      PUID: ${PUID}
+      PGID: ${PGID}
+      TZ: ${TZ}
+      SONARR_API_KEY: ${SONARR_API_KEY}
+      RADARR_API_KEY: ${RADARR_API_KEY}
+      RADARR4K_API_KEY: ${RADARR4K_API_KEY}
+    restart: unless-stopped
+    mem_limit: 256m
+    volumes:
+      - ${APPDATA_PATH}/recyclarr:/config
+
+  # ==========================================================
+  # AUTO-UPDATER
+  # ==========================================================
+
+  watchtower:
+    container_name: watchtower
+    image: containrrr/watchtower:latest
+    hostname: Watchtower
+    environment:
+      TZ: ${TZ}
+      WATCHTOWER_CLEANUP: "true"
+      WATCHTOWER_INCLUDE_STOPPED: "false"
+      WATCHTOWER_MONITOR_ONLY: "false"
+      WATCHTOWER_SCHEDULE: 0 0 4 * * *
+      WATCHTOWER_TIMEOUT: 10s
+      WATCHTOWER_NOTIFICATIONS: shoutrrr
+      WATCHTOWER_NOTIFICATIONS_LEVEL: info
+      WATCHTOWER_NOTIFICATION_REPORT: "true"
+      WATCHTOWER_NOTIFICATION_URL: ${WATCHTOWER_NOTIFICATION_URL}
+      WATCHTOWER_DISABLE_CONTAINERS: watchtower
+    restart: unless-stopped
+    mem_limit: 256m
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  # ==========================================================
+  # REMOTE ACCESS VPN
+  # ==========================================================
+
+  tailscale:
+    container_name: tailscale
+    image: tailscale/tailscale:latest
+    hostname: Tailscale
+    network_mode: host            # Required for subnet routing — shares NAS01 network stack
+    environment:
+      TS_AUTHKEY: ${TAILSCALE_AUTHKEY}
+      TS_AUTH_ONCE: "true"        # Only auth if not already registered (state persisted via volume)
+      TS_STATE_DIR: /var/lib/tailscale
+      TS_HOSTNAME: NAS01-homelab
+      TS_USERSPACE: "false"       # Kernel networking — required for subnet routing to non-NAS01 hosts
+      TS_ROUTES: "192.168.1.0/24"
+      TS_ACCEPT_DNS: "false"      # Preserve Technitium as LAN DNS resolver
+      TS_ENABLE_HEALTH_CHECK: "true"
+      TS_LOCAL_ADDR_PORT: "127.0.0.1:9002"
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    restart: unless-stopped
+    mem_limit: 128m
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9002/healthz"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    volumes:
+      - ${APPDATA_PATH}/tailscale:/var/lib/tailscale
+
+networks:
+  default:
+    name: homelab

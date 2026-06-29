@@ -1,0 +1,91 @@
+{
+  "CreatedByVersion": "2.0.7.1_stable_2023-05-24",
+  "Schedule": {
+    "ID": -1,
+    "Tags": [],
+    "Time": "2026-05-26T02:00:00",
+    "Repeat": "1D",
+    "LastRun": "0001-01-01T00:00:00",
+    "Rule": "",
+    "AllowedDays": null
+  },
+  "Backup": {
+    "ID": "-1",
+    "Name": "Homelab AppData → NAS02",
+    "Tags": [],
+    "TargetURL": "file:///backups/homelab-appdata",
+    "DBPath": "%APPDATADIR%/homelab-appdata.sqlite",
+    "Sources": [
+      "/source"
+    ],
+    "Settings": [
+      {
+        "Filter": "",
+        "Name": "passphrase",
+        "Value": "Cannon40!",
+        "Argument": null
+      },
+      {
+        "Filter": "",
+        "Name": "encryption-module",
+        "Value": "aes",
+        "Argument": null
+      },
+      {
+        "Filter": "",
+        "Name": "compression-module",
+        "Value": "zip",
+        "Argument": null
+      },
+      {
+        "Filter": "",
+        "Name": "retention-policy",
+        "Value": "1W:1D,4W:1W,12M:1M",
+        "Argument": null
+      },
+      {
+        "Filter": "",
+        "Name": "dblock-size",
+        "Value": "50mb",
+        "Argument": null
+      },
+      {
+        "Filter": "",
+        "Name": "backup-name",
+        "Value": "Homelab AppData → NAS02",
+        "Argument": null
+      }
+    ],
+    "Filters": [
+      {
+        "Include": false,
+        "Expression": "*/plex/Library/Application Support/Plex Media Server/Cache*"
+      },
+      {
+        "Include": false,
+        "Expression": "*/plex/Library/Application Support/Plex Media Server/Codecs*"
+      },
+      {
+        "Include": false,
+        "Expression": "*/plex/Library/Application Support/Plex Media Server/Crash Reports*"
+      },
+      {
+        "Include": false,
+        "Expression": "*/plex/Library/Application Support/Plex Media Server/Logs*"
+      },
+      {
+        "Include": false,
+        "Expression": "*/plex/Library/Application Support/Plex Media Server/Media*"
+      },
+      {
+        "Include": false,
+        "Expression": "*/plex/Library/Application Support/Plex Media Server/Updates*"
+      },
+      {
+        "Include": false,
+        "Expression": "*/transmissionvpn/torrents*"
+      }
+    ],
+    "Metadata": {}
+  }
+}

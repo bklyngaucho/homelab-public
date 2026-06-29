@@ -1,0 +1,454 @@
+{
+  "_id": "-W-fcbKec",
+  "name": "Normalize: MKV + H264 + AAC Stereo",
+  "priority": 0,
+  "isUiLocked": false,
+  "flowPlugins": [
+    {
+      "name": "Input File",
+      "sourceRepo": "Community",
+      "pluginName": "inputFile",
+      "version": "1.0.0",
+      "inputsDB": {
+        "fileAccessChecks": "false",
+        "pauseNodeIfAccessChecksFail": "false"
+      },
+      "fpEnabled": true,
+      "id": "input_n1",
+      "position": {
+        "x": -500,
+        "y": 0
+      }
+    },
+    {
+      "name": "Check: H.264?",
+      "sourceRepo": "Community",
+      "pluginName": "checkVideoCodec",
+      "version": "1.0.0",
+      "inputsDB": {
+        "codec": "h264"
+      },
+      "fpEnabled": true,
+      "id": "chk_264",
+      "position": {
+        "x": -200,
+        "y": 0
+      }
+    },
+    {
+      "name": "Check: already MKV?",
+      "sourceRepo": "Community",
+      "pluginName": "checkFileExtension",
+      "version": "1.0.0",
+      "inputsDB": {
+        "extensions": "mkv"
+      },
+      "fpEnabled": true,
+      "id": "chk_mkv",
+      "position": {
+        "x": 100,
+        "y": 0
+      }
+    },
+    {
+      "name": "Begin FFmpeg (add AAC to MKV)",
+      "sourceRepo": "Community",
+      "pluginName": "ffmpegCommandStart",
+      "version": "1.0.0",
+      "inputsDB": {},
+      "fpEnabled": true,
+      "id": "beg_a",
+      "position": {
+        "x": 400,
+        "y": -150
+      }
+    },
+    {
+      "name": "Loudnorm AAC 2.0 stereo 192k (a)",
+      "sourceRepo": "Community",
+      "pluginName": "ffmpegCommandCustomArguments",
+      "version": "1.0.0",
+      "inputsDB": {
+        "inputArguments": "",
+        "outputArguments": "-filter_complex [0:a:0]loudnorm=I=-14:LRA=11:TP=-1.5,aformat=channel_layouts=stereo[normaac] -map [normaac] -c:a:1 aac -b:a:1 192k -metadata:s:a:1 title=AAC_Stereo_Normalized"
+      },
+      "fpEnabled": true,
+      "id": "add_aac_a",
+      "position": {
+        "x": 700,
+        "y": -150
+      }
+    },
+    {
+      "name": "Execute FFmpeg (AAC only)",
+      "sourceRepo": "Community",
+      "pluginName": "ffmpegCommandExecute",
+      "version": "1.0.0",
+      "inputsDB": {},
+      "fpEnabled": true,
+      "id": "exe_a",
+      "position": {
+        "x": 1000,
+        "y": -150
+      }
+    },
+    {
+      "name": "Replace Original File",
+      "sourceRepo": "Community",
+      "pluginName": "replaceOriginalFile",
+      "version": "1.0.0",
+      "inputsDB": {},
+      "fpEnabled": true,
+      "id": "rep_a",
+      "position": {
+        "x": 1300,
+        "y": -150
+      }
+    },
+    {
+      "name": "Done \u2014 AAC added to MKV",
+      "sourceRepo": "Community",
+      "pluginName": "comment",
+      "version": "1.0.0",
+      "fpEnabled": true,
+      "id": "done_a",
+      "position": {
+        "x": 1600,
+        "y": -150
+      }
+    },
+    {
+      "name": "Begin FFmpeg (remux to MKV)",
+      "sourceRepo": "Community",
+      "pluginName": "ffmpegCommandStart",
+      "version": "1.0.0",
+      "inputsDB": {},
+      "fpEnabled": true,
+      "id": "beg_b",
+      "position": {
+        "x": 400,
+        "y": 150
+      }
+    },
+    {
+      "name": "Set container: MKV (remux)",
+      "sourceRepo": "Community",
+      "pluginName": "ffmpegCommandSetContainer",
+      "version": "1.0.0",
+      "inputsDB": {
+        "container": "mkv",
+        "forceConform": "true"
+      },
+      "fpEnabled": true,
+      "id": "set_mkv_b",
+      "position": {
+        "x": 700,
+        "y": 150
+      }
+    },
+    {
+      "name": "Loudnorm AAC 2.0 stereo 192k (b)",
+      "sourceRepo": "Community",
+      "pluginName": "ffmpegCommandCustomArguments",
+      "version": "1.0.0",
+      "inputsDB": {
+        "inputArguments": "",
+        "outputArguments": "-filter_complex [0:a:0]loudnorm=I=-14:LRA=11:TP=-1.5,aformat=channel_layouts=stereo[normaac] -map [normaac] -c:a:1 aac -b:a:1 192k -metadata:s:a:1 title=AAC_Stereo_Normalized"
+      },
+      "fpEnabled": true,
+      "id": "add_aac_b",
+      "position": {
+        "x": 1000,
+        "y": 150
+      }
+    },
+    {
+      "name": "Execute FFmpeg (remux)",
+      "sourceRepo": "Community",
+      "pluginName": "ffmpegCommandExecute",
+      "version": "1.0.0",
+      "inputsDB": {},
+      "fpEnabled": true,
+      "id": "exe_b",
+      "position": {
+        "x": 1300,
+        "y": 150
+      }
+    },
+    {
+      "name": "Replace Original File",
+      "sourceRepo": "Community",
+      "pluginName": "replaceOriginalFile",
+      "version": "1.0.0",
+      "inputsDB": {},
+      "fpEnabled": true,
+      "id": "rep_b",
+      "position": {
+        "x": 1600,
+        "y": 150
+      }
+    },
+    {
+      "name": "Done \u2014 remuxed to MKV + AAC",
+      "sourceRepo": "Community",
+      "pluginName": "comment",
+      "version": "1.0.0",
+      "fpEnabled": true,
+      "id": "done_b",
+      "position": {
+        "x": 1900,
+        "y": 150
+      }
+    },
+    {
+      "name": "Begin FFmpeg (transcode old codec)",
+      "sourceRepo": "Community",
+      "pluginName": "ffmpegCommandStart",
+      "version": "1.0.0",
+      "inputsDB": {},
+      "fpEnabled": true,
+      "id": "beg_c",
+      "position": {
+        "x": 100,
+        "y": 450
+      }
+    },
+    {
+      "name": "Set container: MKV (transcode)",
+      "sourceRepo": "Community",
+      "pluginName": "ffmpegCommandSetContainer",
+      "version": "1.0.0",
+      "inputsDB": {
+        "container": "mkv",
+        "forceConform": "true"
+      },
+      "fpEnabled": true,
+      "id": "set_mkv_c",
+      "position": {
+        "x": 400,
+        "y": 450
+      }
+    },
+    {
+      "name": "Encode: H.264 NVENC QP18 p5",
+      "sourceRepo": "Community",
+      "pluginName": "ffmpegCommandSetVideoEncoder",
+      "version": "1.0.0",
+      "inputsDB": {
+        "outputCodec": "h264",
+        "ffmpegPresetEnabled": "true",
+        "ffmpegPreset": "medium",
+        "ffmpegQualityEnabled": "true",
+        "ffmpegQuality": "18",
+        "hardwareEncoding": "true",
+        "hardwareType": "nvenc",
+        "hardwareDecoding": "true",
+        "forceEncoding": "true"
+      },
+      "fpEnabled": true,
+      "id": "enc_c",
+      "position": {
+        "x": 700,
+        "y": 450
+      }
+    },
+    {
+      "name": "Force 8-bit output (pix_fmt yuv420p)",
+      "sourceRepo": "Community",
+      "pluginName": "ffmpegCommandCustomArguments",
+      "version": "1.0.0",
+      "inputsDB": {
+        "inputArguments": "",
+        "outputArguments": "-pix_fmt yuv420p"
+      },
+      "fpEnabled": true,
+      "id": "pix_c",
+      "position": {
+        "x": 1000,
+        "y": 450
+      }
+    },
+    {
+      "name": "Loudnorm AAC 2.0 stereo 192k (c)",
+      "sourceRepo": "Community",
+      "pluginName": "ffmpegCommandCustomArguments",
+      "version": "1.0.0",
+      "inputsDB": {
+        "inputArguments": "",
+        "outputArguments": "-filter_complex [0:a:0]loudnorm=I=-14:LRA=11:TP=-1.5,aformat=channel_layouts=stereo[normaac] -map [normaac] -c:a:1 aac -b:a:1 192k -metadata:s:a:1 title=AAC_Stereo_Normalized"
+      },
+      "fpEnabled": true,
+      "id": "add_aac_c",
+      "position": {
+        "x": 1300,
+        "y": 450
+      }
+    },
+    {
+      "name": "Execute FFmpeg (transcode)",
+      "sourceRepo": "Community",
+      "pluginName": "ffmpegCommandExecute",
+      "version": "1.0.0",
+      "inputsDB": {},
+      "fpEnabled": true,
+      "id": "exe_c",
+      "position": {
+        "x": 1600,
+        "y": 450
+      }
+    },
+    {
+      "name": "Replace Original File",
+      "sourceRepo": "Community",
+      "pluginName": "replaceOriginalFile",
+      "version": "1.0.0",
+      "inputsDB": {},
+      "fpEnabled": true,
+      "id": "rep_c",
+      "position": {
+        "x": 1900,
+        "y": 450
+      }
+    },
+    {
+      "name": "Done \u2014 old codec \u2192 H.264 MKV + AAC",
+      "sourceRepo": "Community",
+      "pluginName": "comment",
+      "version": "1.0.0",
+      "fpEnabled": true,
+      "id": "done_c",
+      "position": {
+        "x": 2200,
+        "y": 450
+      }
+    }
+  ],
+  "flowEdges": [
+    {
+      "id": "e_in",
+      "source": "input_n1",
+      "sourceHandle": "1",
+      "target": "chk_264"
+    },
+    {
+      "id": "e_264_yes",
+      "source": "chk_264",
+      "sourceHandle": "1",
+      "target": "chk_mkv"
+    },
+    {
+      "id": "e_264_no",
+      "source": "chk_264",
+      "sourceHandle": "2",
+      "target": "beg_c"
+    },
+    {
+      "id": "e_mkv_yes",
+      "source": "chk_mkv",
+      "sourceHandle": "1",
+      "target": "beg_a"
+    },
+    {
+      "id": "e_mkv_no",
+      "source": "chk_mkv",
+      "sourceHandle": "2",
+      "target": "beg_b"
+    },
+    {
+      "id": "e_a_beg",
+      "source": "beg_a",
+      "sourceHandle": "1",
+      "target": "add_aac_a"
+    },
+    {
+      "id": "e_a_add",
+      "source": "add_aac_a",
+      "sourceHandle": "1",
+      "target": "exe_a"
+    },
+    {
+      "id": "e_a_exe",
+      "source": "exe_a",
+      "sourceHandle": "1",
+      "target": "rep_a"
+    },
+    {
+      "id": "e_a_rep",
+      "source": "rep_a",
+      "sourceHandle": "1",
+      "target": "done_a"
+    },
+    {
+      "id": "e_b_beg",
+      "source": "beg_b",
+      "sourceHandle": "1",
+      "target": "set_mkv_b"
+    },
+    {
+      "id": "e_b_mkv",
+      "source": "set_mkv_b",
+      "sourceHandle": "1",
+      "target": "add_aac_b"
+    },
+    {
+      "id": "e_b_add",
+      "source": "add_aac_b",
+      "sourceHandle": "1",
+      "target": "exe_b"
+    },
+    {
+      "id": "e_b_exe",
+      "source": "exe_b",
+      "sourceHandle": "1",
+      "target": "rep_b"
+    },
+    {
+      "id": "e_b_rep",
+      "source": "rep_b",
+      "sourceHandle": "1",
+      "target": "done_b"
+    },
+    {
+      "id": "e_c_beg",
+      "source": "beg_c",
+      "sourceHandle": "1",
+      "target": "set_mkv_c"
+    },
+    {
+      "id": "e_c_mkv",
+      "source": "set_mkv_c",
+      "sourceHandle": "1",
+      "target": "enc_c"
+    },
+    {
+      "id": "e_c_enc",
+      "source": "enc_c",
+      "sourceHandle": "1",
+      "target": "pix_c"
+    },
+    {
+      "id": "e_c_pix",
+      "source": "pix_c",
+      "sourceHandle": "1",
+      "target": "add_aac_c"
+    },
+    {
+      "id": "e_c_add",
+      "source": "add_aac_c",
+      "sourceHandle": "1",
+      "target": "exe_c"
+    },
+    {
+      "id": "e_c_exe",
+      "source": "exe_c",
+      "sourceHandle": "1",
+      "target": "rep_c"
+    },
+    {
+      "id": "e_c_rep",
+      "source": "rep_c",
+      "sourceHandle": "1",
+      "target": "done_c"
+    }
+  ]
+}

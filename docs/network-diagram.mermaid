@@ -1,0 +1,90 @@
+---
+title: Homelab Network Topology
+---
+graph TB
+    %% ── Internet & Edge ──────────────────────────────────────────
+    INET(["☁️ Internet\n2 Gbps Fiber"])
+    CF["Cloudflare\n*.yourdomain.com\n→ YOUR_PUBLIC_IP"]
+    UXG["UniFi UXG-Fiber\n192.168.1.1\nFirewall / Router"]
+    ZYX["Zyxel XGS1210-12\n192.168.1.2\n2×10GbE · 2×2.5GbE · 8×1GbE"]
+
+    INET -->|"fiber"| UXG
+    CF -->|"proxied HTTPS"| UXG
+    UXG -->|"1GbE uplink"| ZYX
+
+    %% ── Main LAN devices ────────────────────────────────────────
+    NAS01["NAS01\n192.168.1.33\nbond0 · 2×1GbE (Balance-XOR)\nZyxel LAG 3 ports 7+8\nContainer Station\n21 containers"]
+    NAS02["NAS02 / TrueNAS\n192.168.1.31\neno1 · 1GbE\nZFS RAID-10\n4× mirror vdevs · 36 TB"]
+    P360["Lenovo P360\n(AI Workstation)\nOllama / Open WebUI\n— separate stack —"]
+
+    ZYX -->|"2×1GbE LAG\n(Balance-XOR · LAG 3 ports 7+8)"| NAS01
+    ZYX -->|"1GbE (eno1 mgmt)"| NAS02
+    ZYX --- P360
+
+    %% ── Dedicated 10GbE storage link ────────────────────────────
+    NAS01_STOR["NAS01 Adapter 5\nAquantia QM2-2P10G1TB\n10.10.10.33 · MTU 9000"]
+    T440_STOR["NAS02 ens2f0\nChelsio dual-port 10GbE\n10.10.10.31 · MTU 9000"]
+
+    NAS01 --- NAS01_STOR
+    NAS02 --- T440_STOR
+    NAS01_STOR <-->|"direct cable\n10GbE · ~780 MB/s read\n~1 GB/s write"| T440_STOR
+
+    %% ── NFS mounts ──────────────────────────────────────────────
+    NFS_MEDIA["media_ds\n17.4 TB"]
+    NFS_DL["downloads_ds\n73 GB"]
+    NFS_BK["backups\n67 GB"]
+
+    T440_STOR -->|"NFS export"| NFS_MEDIA
+    T440_STOR -->|"NFS export"| NFS_DL
+    T440_STOR -->|"NFS export"| NFS_BK
+    NFS_MEDIA -->|"HybridMount\n10.10.10.31"| NAS01_STOR
+    NFS_DL    -->|"HybridMount\n10.10.10.31"| NAS01_STOR
+    NFS_BK    -->|"HybridMount\n10.10.10.31"| NAS01_STOR
+
+    %% ── DNS ─────────────────────────────────────────────────────
+    TECH["Technitium DNS\n192.168.1.33:53\n*.yourdomain.com → 192.168.1.33\nOISD + AdGuard ad-block"]
+    NAS01 --- TECH
+
+    %% ── Container stack (key services) ──────────────────────────
+    subgraph CONTAINERS["Docker · homelab network · bridge mode"]
+        NPM["Nginx Proxy Manager\n:80 / :443"]
+        PLEX["Plex\n:32400"]
+        SEERR["Seerr\n:5055"]
+        ARR["ARR Stack\nSonarr · Radarr · Radarr4K\nBazarr · Prowlarr"]
+        DL["TransmissionVPN\n:9091 · PIA VPN\n+ SABnzbd :8787"]
+        TDARR["Tdarr\n:8265 · GPU transcode\nNVENC + VAAPI"]
+        DUP["Duplicati\n:8200 · daily @ 2 AM"]
+        TAIL["Tailscale\nsubnet router\n192.168.1.0/24"]
+    end
+
+    NAS01 --- CONTAINERS
+    NPM -->|"proxy"| PLEX
+    NPM -->|"proxy"| SEERR
+    ARR -->|"send downloads"| DL
+    PLEX -->|"reads media"| NFS_MEDIA
+    TDARR -->|"reads/writes"| NFS_MEDIA
+    DUP -->|"backup target"| NFS_BK
+
+    %% ── External access ─────────────────────────────────────────
+    UXG -->|"port fwd\n80/443/32400"| NPM
+    UXG -->|"port fwd\n32400"| PLEX
+
+    %% ── iDRAC ───────────────────────────────────────────────────
+    IDRAC["Dell iDRAC\n192.168.1.4\nRedfish API"]
+    NAS02 --- IDRAC
+
+    %% ── Styling ─────────────────────────────────────────────────
+    classDef edge      fill:#1a3a5c,stroke:#4a90d9,color:#fff
+    classDef compute   fill:#1a4a2a,stroke:#4ab86a,color:#fff
+    classDef storage   fill:#4a2a1a,stroke:#d98c4a,color:#fff
+    classDef network   fill:#2a1a4a,stroke:#8c4ad9,color:#fff
+    classDef container fill:#1a2a3a,stroke:#4a8cb8,color:#ddd
+    classDef nfs       fill:#3a3a1a,stroke:#b8b84a,color:#fff
+
+    class INET,CF edge
+    class UXG,ZYX network
+    class NAS01,P360 compute
+    class NAS02,IDRAC storage
+    class NAS01_STOR,T440_STOR network
+    class NFS_MEDIA,NFS_DL,NFS_BK nfs
+    class TECH,NPM,PLEX,SEERR,ARR,DL,TDARR,DUP,TAIL container

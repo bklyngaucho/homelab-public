@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Homelab DR Playbook</title>
+<style>
+  :root {
+    --bg: #0d1117; --surface: #161b22; --border: #30363d;
+    --blue: #58a6ff; --green: #3fb950; --yellow: #d29922;
+    --red: #f85149; --purple: #bc8cff; --orange: #ffa657;
+    --text: #c9d1d9; --muted: #8b949e; --heading: #f0f6fc;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; line-height: 1.6; }
+  a { color: var(--blue); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  /* Layout */
+  .header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 20px 32px; display: flex; align-items: center; gap: 16px; position: sticky; top: 0; z-index: 100; }
+  .header h1 { font-size: 20px; color: var(--heading); }
+  .header .rto { background: #1f3a1f; border: 1px solid var(--green); color: var(--green); padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+  .nav { display: flex; gap: 20px; margin-left: auto; font-size: 13px; }
+  .nav a { color: var(--muted); }
+  .nav a:hover { color: var(--text); }
+
+  .container { max-width: 1100px; margin: 0 auto; padding: 32px 24px; }
+
+  /* Progress bar */
+  .progress-bar { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px 20px; margin-bottom: 32px; }
+  .progress-bar h3 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 12px; }
+  .progress-track { background: var(--border); height: 8px; border-radius: 4px; overflow: hidden; margin-bottom: 8px; }
+  .progress-fill { background: linear-gradient(90deg, var(--green), var(--blue)); height: 100%; border-radius: 4px; transition: width 0.3s ease; width: 0%; }
+  .progress-label { font-size: 12px; color: var(--muted); }
+
+  /* Sections */
+  .section { margin-bottom: 40px; }
+  .section-title { font-size: 18px; color: var(--heading); font-weight: 600; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
+  .section-title .icon { font-size: 18px; }
+
+  /* Cards */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px 20px; margin-bottom: 12px; }
+  .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+
+  /* Infra map */
+  .infra { display: flex; gap: 16px; flex-wrap: wrap; }
+  .infra-node { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; flex: 1; min-width: 200px; }
+  .infra-node.primary { border-color: var(--blue); }
+  .infra-node.storage { border-color: var(--purple); }
+  .infra-node.dr { border-color: var(--green); border-style: dashed; }
+  .infra-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 6px; }
+  .infra-name { font-size: 15px; font-weight: 600; color: var(--heading); margin-bottom: 4px; }
+  .infra-detail { font-size: 12px; color: var(--muted); }
+  .arrow { display: flex; align-items: center; color: var(--muted); font-size: 20px; padding: 0 4px; align-self: center; }
+
+  /* Backup table */
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; color: var(--muted); font-weight: 500; padding: 8px 12px; border-bottom: 1px solid var(--border); font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; }
+  td { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+  tr:last-child td { border-bottom: none; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+  .badge-green { background: #1f3a1f; color: var(--green); }
+  .badge-yellow { background: #3a2f1f; color: var(--yellow); }
+  .badge-blue { background: #1a2f4a; color: var(--blue); }
+  .badge-muted { background: #1e2228; color: var(--muted); }
+
+  /* Steps */
+  .step-group { margin-bottom: 8px; }
+  .step-item { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; margin-bottom: 6px; display: flex; align-items: flex-start; gap: 12px; cursor: pointer; transition: border-color 0.15s; }
+  .step-item:hover { border-color: var(--muted); }
+  .step-item.done { border-color: var(--green); background: #0d1a0d; }
+  .step-item.done .step-text { text-decoration: line-through; color: var(--muted); }
+  .step-num { min-width: 28px; height: 28px; border-radius: 50%; background: var(--border); color: var(--muted); font-size: 12px; font-weight: 600; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .step-item.done .step-num { background: var(--green); color: #fff; }
+  .step-content { flex: 1; }
+  .step-title { font-weight: 600; color: var(--heading); font-size: 14px; }
+  .step-text { color: var(--text); font-size: 13px; margin-top: 2px; }
+  .step-time { font-size: 11px; color: var(--muted); margin-top: 4px; }
+  .step-code { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; margin-top: 8px; font-family: 'SFMono-Regular', 'Cascadia Code', Consolas, monospace; font-size: 12px; color: var(--text); white-space: pre; overflow-x: auto; cursor: text; }
+  .step-warn { background: #2a2000; border-left: 3px solid var(--yellow); padding: 8px 12px; border-radius: 0 4px 4px 0; margin-top: 8px; font-size: 12px; color: var(--yellow); }
+  .step-note { background: #0d1a2e; border-left: 3px solid var(--blue); padding: 8px 12px; border-radius: 0 4px 4px 0; margin-top: 8px; font-size: 12px; color: var(--blue); }
+
+  .phase-header { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 10px 14px; margin-bottom: 8px; display: flex; align-items: center; gap: 10px; }
+  .phase-header .phase-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+  .phase-header .phase-name { font-size: 14px; font-weight: 600; color: var(--heading); }
+  .phase-header .phase-time { margin-left: auto; font-size: 12px; color: var(--muted); }
+
+  /* Services table */
+  .url-cell { font-family: 'SFMono-Regular', Consolas, monospace; font-size: 12px; color: var(--blue); }
+  .port-cell { font-family: 'SFMono-Regular', Consolas, monospace; font-size: 12px; }
+
+  /* Maintenance */
+  .maint-item { display: flex; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); align-items: flex-start; }
+  .maint-item:last-child { border-bottom: none; }
+  .maint-freq { min-width: 80px; font-size: 12px; color: var(--muted); }
+  .maint-task { flex: 1; font-size: 13px; }
+  .maint-reason { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+  /* Reset button */
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-size: 13px; cursor: pointer; }
+  .btn:hover { border-color: var(--muted); }
+  .btn-green { border-color: var(--green); color: var(--green); }
+
+  /* Collapsible code blocks */
+  details summary { cursor: pointer; color: var(--muted); font-size: 12px; margin-top: 6px; }
+  details summary:hover { color: var(--text); }
+  details[open] summary { color: var(--text); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <span style="font-size:22px">🛡️</span>
+  <h1>Homelab DR Playbook</h1>
+  <span class="rto">🎯 RTO: 30 min (NAS02) · 60-90 min (B2)</span>
+  <nav class="nav">
+    <a href="#infra">Infrastructure</a>
+    <a href="#backups">Backups</a>
+    <a href="#restore">Restore</a>
+    <a href="#verify">Verify</a>
+    <a href="#services">Services</a>
+    <a href="#maintenance">Maintenance</a>
+  </nav>
+</div>
+
+<div class="container">
+
+  <!-- Progress tracker -->
+  <div class="progress-bar">
+    <h3>Restore Progress</h3>
+    <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="progress-label" id="progressLabel">Click steps below to track progress</div>
+  </div>
+
+  <!-- ================================================================== -->
+  <!-- INFRASTRUCTURE                                                       -->
+  <!-- ================================================================== -->
+  <div class="section" id="infra">
+    <div class="section-title"><span class="icon">🏗️</span> Infrastructure Map</div>
+
+    <div style="margin-bottom: 16px; font-size: 13px; color: var(--muted);">Normal operation topology. During DR, the NAS01 is replaced by any Linux host running Docker.</div>
+
+    <div class="infra" style="align-items: center;">
+      <div class="infra-node">
+        <div class="infra-label">Edge</div>
+        <div class="infra-name">UniFi UXG-Fiber</div>
+        <div class="infra-detail">192.168.1.1 · Port forward 32400 → NAS01</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="infra-node primary">
+        <div class="infra-label">Primary Compute ★</div>
+        <div class="infra-name">NAS01</div>
+        <div class="infra-detail">192.168.1.33 · Container Station · 19 containers</div>
+        <div class="infra-detail" style="margin-top:6px; font-size:11px; color:var(--muted);">i7-7700T · GTX 1050 Ti · QTS 5.x</div>
+      </div>
+      <div class="arrow">⇄ NFS</div>
+      <div class="infra-node storage">
+        <div class="infra-label">Storage</div>
+        <div class="infra-name">NAS02 / TrueNAS</div>
+        <div class="infra-detail">192.168.1.31 · 3 NFS shares</div>
+        <div class="infra-detail" style="margin-top:6px; font-size:11px; color:var(--muted);">media_ds · downloads_ds · backups</div>
+      </div>
+    </div>
+
+    <div style="margin: 12px 0; display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px;">
+      <div style="height: 1px; flex: 1; background: var(--border);"></div>
+      DR SCENARIO
+      <div style="height: 1px; flex: 1; background: var(--border);"></div>
+    </div>
+
+    <div class="infra">
+      <div class="infra-node dr">
+        <div class="infra-label">DR Host (any Linux machine)</div>
+        <div class="infra-name">Docker Host</div>
+        <div class="infra-detail">P360, VM, or any x86_64 Linux box</div>
+        <div class="infra-detail" style="margin-top:6px; font-size:11px; color:var(--muted);">NFS mounts NAS02 shares · Same 19 containers</div>
+      </div>
+      <div class="arrow">⇄ NFS</div>
+      <div class="infra-node storage">
+        <div class="infra-label">Storage (unchanged)</div>
+        <div class="infra-name">NAS02 / TrueNAS</div>
+        <div class="infra-detail">All data lives here · Not affected by NAS01 failure</div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top: 16px;">
+      <div style="font-size: 13px; color: var(--muted);">Key insight: <span style="color:var(--text)">All persistent media and container config live on the NAS02, not on the NAS01. A NAS01 failure loses the running containers, not the data.</span></div>
+    </div>
+  </div>
+
+  <!-- ================================================================== -->
+  <!-- BACKUPS                                                              -->
+  <!-- ================================================================== -->
+  <div class="section" id="backups">
+    <div class="section-title"><span class="icon">💾</span> Backup Inventory</div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>What</th>
+          <th>Tool</th>
+          <th>Source</th>
+          <th>Destination</th>
+          <th>Schedule</th>
+          <th>Retention</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>Container configs & DBs</strong><br><span style="font-size:11px;color:var(--muted)">Plex DB, Sonarr/Radarr history, all appdata</span></td>
+          <td>Duplicati</td>
+          <td><code>/share/appdata</code></td>
+          <td>NAS02 backups share<br><code>homelab-appdata/</code></td>
+          <td>Daily 2am</td>
+          <td>7d daily<br>4w weekly<br>12m monthly</td>
+          <td><span class="badge badge-green">Active</span></td>
+        </tr>
+        <tr>
+          <td><strong>Container configs & DBs (offsite)</strong><br><span style="font-size:11px;color:var(--muted)">Same source — AES-256 encrypted copy in B2</span></td>
+          <td>Duplicati</td>
+          <td><code>/share/appdata</code></td>
+          <td>Backblaze B2<br><code>yourusername-appdata-backup</code></td>
+          <td>Daily 3:30am</td>
+          <td>7d daily<br>4w weekly<br>12m monthly</td>
+          <td><span class="badge badge-green">Active</span></td>
+        </tr>
+        <tr>
+          <td><strong>Stack definition</strong><br><span style="font-size:11px;color:var(--muted)">docker-compose.yml, .env.template, scripts</span></td>
+          <td>GitHub</td>
+          <td>Local repo</td>
+          <td>github.com/yourusername/homelab</td>
+          <td>On change</td>
+          <td>Full history</td>
+          <td><span class="badge badge-green">Active</span></td>
+        </tr>
+        <tr>
+          <td><strong>Media library</strong><br><span style="font-size:11px;color:var(--muted)">Movies, TV, music, 4K — media_ds share</span></td>
+          <td>TrueNAS (native)</td>
+          <td>NAS02 pool</td>
+          <td>NAS02 internal redundancy</td>
+          <td>Continuous</td>
+          <td>—</td>
+          <td><span class="badge badge-blue">On-NAS RAID</span></td>
+        </tr>
+        <tr>
+          <td><strong>Credentials / .env</strong><br><span style="font-size:11px;color:var(--muted)">VPN creds, Duplicati keys, passwords</span></td>
+          <td>Manual</td>
+          <td>~/.homelab.secrets</td>
+          <td>Password manager / USB key</td>
+          <td>On change</td>
+          <td>—</td>
+          <td><span class="badge badge-yellow">Manual — verify!</span></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="card" style="margin-top: 16px; border-color: var(--yellow);">
+      <strong style="color:var(--yellow)">⚠ What is NOT backed up</strong>
+      <ul style="margin-top: 8px; padding-left: 20px; font-size: 13px; color: var(--muted);">
+        <li>Plex Cache, thumbnails, codecs, logs — excluded intentionally (regenerated automatically)</li>
+        <li>In-progress torrent files in downloads_ds/incomplete</li>
+        <li>Docker images — re-pulled from registries on restore</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ================================================================== -->
+  <!-- RESTORE PROCEDURE                                                    -->
+  <!-- ================================================================== -->
+  <div class="section" id="restore">
+    <div class="section-title">
+      <span class="icon">🔄</span> Restore Procedure
+      <button class="btn" onclick="resetSteps()" style="margin-left: auto; font-size: 12px;">Reset checklist</button>
+    </div>
+
+    <div style="font-size: 13px; color: var(--muted); margin-bottom: 20px;">
+      Click each step to mark it complete. Times are estimates for a warm machine (Docker images cached). Add ~15-20 min for a cold machine.
+    </div>
+
+    <!-- RESTORE PATH SELECTOR -->
+    <div class="card" style="margin-bottom: 20px; border-color: var(--blue);">
+      <div style="font-size: 13px; font-weight: 600; color: var(--heading); margin-bottom: 10px;">🔀 Which restore path?</div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 13px;">
+        <div style="background: var(--bg); border: 1px solid var(--green); border-radius: 6px; padding: 12px;">
+          <div style="font-weight: 600; color: var(--green); margin-bottom: 4px;">Path A — NAS02 available</div>
+          <div style="color: var(--muted); font-size: 12px;">NAS01 dead, NAS02 fine. Local restore from NAS backups share.<br><strong style="color:var(--text)">RTO: ~30 min</strong><br>Run: <code>./restore.sh</code></div>
+        </div>
+        <div style="background: var(--bg); border: 1px solid var(--yellow); border-radius: 6px; padding: 12px;">
+          <div style="font-weight: 600; color: var(--yellow); margin-bottom: 4px;">Path B — NAS02 also gone</div>
+          <div style="color: var(--muted); font-size: 12px;">Both dead, or restoring off-site. Downloads ~46 GB from B2. Media re-downloads via Radarr/Sonarr after.<br><strong style="color:var(--text)">RTO: ~60-90 min</strong><br>Run: <code>./restore.sh --source b2</code></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PHASE 1 -->
+    <div class="phase-header">
+      <div>
+        <div class="phase-label">Phase 1</div>
+        <div class="phase-name">Before You Touch Anything</div>
+      </div>
+      <div class="phase-time">~0 min</div>
+    </div>
+
+    <div data-step="pre-1" class="step-item" onclick="toggleStep(this)">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <div class="step-title">Confirm the NAS01 is actually dead</div>
+        <div class="step-text">Verify this isn't a temporary glitch. Try the NAS01 admin UI, ping 192.168.1.33, check physical LEDs. If it's just a hung container, reboot the NAS01 via power cycle before escalating to full DR.</div>
+      </div>
+    </div>
+
+    <div data-step="pre-2" class="step-item" onclick="toggleStep(this)">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <div class="step-title">Check NAS02 status — determines which path to take</div>
+        <div class="step-text">If NAS02 is up → Path A (local restore, 30 min). If NAS02 is also down or unreachable → Path B (B2 offsite restore, 60-90 min, media re-downloads afterwards).</div>
+        <div class="step-code">ping 192.168.1.31          # NAS02 reachable?
+showmount -e 192.168.1.31  # NFS exports visible?</div>
+        <div class="step-note">💡 If NAS02 is reachable, proceed with Path A. If not, proceed with Path B — the restore script handles all the differences automatically via <code>--source b2</code>.</div>
+      </div>
+    </div>
+
+    <div data-step="pre-3" class="step-item" onclick="toggleStep(this)">
+      <div class="step-num">3</div>
+      <div class="step-content">
+        <div class="step-title">Locate your secrets file</div>
+        <div class="step-text">You need ~/.homelab.secrets (or a copy from your password manager / USB key). Path A needs NAS02 share paths + Duplicati passphrase. Path B additionally needs B2_KEY_ID and B2_APPLICATION_KEY.</div>
+        <div class="step-warn">⚠ Without this file the restore script will stop at step 1. Have it ready before proceeding.</div>
+      </div>
+    </div>
+
+    <!-- PHASE 2 -->
+    <div class="phase-header" style="margin-top: 16px;">
+      <div>
+        <div class="phase-label">Phase 2</div>
+        <div class="phase-name">Set Up the DR Host</div>
+      </div>
+      <div class="phase-time">~5 min</div>
+    </div>
+
+    <div data-step="host-1" class="step-item" onclick="toggleStep(this)">
+      <div class="step-num">4</div>
+      <div class="step-content">
+        <div class="step-title">Provision a Linux host</div>
+        <div class="step-text">Any x86_64 Linux box with internet access and ~50GB of free disk (for Docker images and appdata). Ubuntu 22.04 LTS is the reference. The P360 running Ubuntu or a VM with 4+ cores and 8GB RAM is fine.</div>
+        <div class="step-note">💡 Docker images alone take ~15 GB. The Plex DB and configs will add several more GB.</div>
+      </div>
+    </div>
+
+    <div data-step="host-2" class="step-item" onclick="toggleStep(this)">
+      <div class="step-num">5</div>
+      <div class="step-content">
+        <div class="step-title">Copy secrets file and SSH key onto the DR host</div>
+        <div class="step-text">From your password manager or USB key, place the secrets file and GitHub SSH key on the DR host.</div>
+        <div class="step-code"># Secrets file
+cp /path/to/.homelab.secrets ~/.homelab.secrets
+chmod 600 ~/.homelab.secrets
+
+# GitHub SSH key (needed to clone the repo)
+cp /path/to/id_ed25519 ~/.ssh/id_ed25519
+chmod 600 ~/.ssh/id_ed25519
+ssh-add ~/.ssh/id_ed25519
+
+# Test GitHub access
+ssh -T git@github.com</div>
+        <div class="step-note">💡 Store your SSH private key in your password manager (1Password, Bitwarden) alongside the secrets file so both are available during DR.</div>
+      </div>
+    </div>
+
+    <!-- PHASE 3 -->
+    <div class="phase-header" style="margin-top: 16px;">
+      <div>
+        <div class="phase-label">Phase 3</div>
+        <div class="phase-name">Run the Restore Script</div>
+      </div>
+      <div class="phase-time">~25 min</div>
+    </div>
+
+    <div data-step="script-1" class="step-item" onclick="toggleStep(this)">
+      <div class="step-num">6</div>
+      <div class="step-content">
+        <div class="step-title">Clone the homelab repo and run restore.sh</div>
+        <div class="step-text">The repo is private — SSH auth is required. The SSH key you placed in step 5 handles this. The script handles everything: Docker install, NFS mounts, Duplicati restore, .env generation, and container startup.</div>
+        <div class="step-code"># Path A — NAS02 available (~30 min)
+git clone git@github.com:yourusername/homelab.git ~/homelab
+chmod +x ~/homelab/dr/restore.sh
+~/homelab/dr/restore.sh
+
+# Path B — B2 offsite (~60-90 min, downloads ~46 GB)
+git clone git@github.com:yourusername/homelab.git ~/homelab
+chmod +x ~/homelab/dr/restore.sh
+~/homelab/dr/restore.sh --source b2</div>
+        <div class="step-note">💡 The script is idempotent — safe to re-run if it fails partway through. It also starts its own ssh-agent internally so it can re-clone the repo for compose files.</div>
+        <div class="step-warn">⚠ The script detects if your user isn't in the docker group yet (common on fresh Ubuntu) and falls back to sudo docker automatically — no action needed.</div>
+      </div>
+    </div>
+
+    <div data-step="script-2" class="step-item" onclick="toggleStep(this)">
+      <div class="step-num">7</div>
+      <div class="step-content">
+        <div class="step-title">If Duplicati CLI restore fails: use the web UI fallback</div>
+        <div class="step-text">Start a standalone Duplicati container, open the UI, and run a restore manually.</div>
+        <details>
+          <summary>Path A (NAS02) fallback</summary>
+          <div class="step-code">docker run -d --name dup-restore -p 8200:8200 \
+  -v /mnt/homelab/backups:/backups \
+  -v /opt/homelab/appdata:/restore \
+  lscr.io/linuxserver/duplicati:latest
+
+# Open http://localhost:8200
+# Add Backup → Import existing → file:///backups/homelab-appdata
+# Restore → choose latest version → target /restore</div>
+        </details>
+        <details>
+          <summary>Path B (B2) fallback</summary>
+          <div class="step-code">docker run -d --name dup-restore -p 8200:8200 \
+  -v /opt/homelab/appdata:/restore \
+  lscr.io/linuxserver/duplicati:latest
+
+# Open http://localhost:8200
+# Add Backup → Backblaze B2
+#   Bucket: yourusername-appdata-backup
+#   Key ID: (from ~/.homelab.secrets B2_KEY_ID)
+#   Application key: (from ~/.homelab.secrets B2_APPLICATION_KEY)
+#   Passphrase: (from ~/.homelab.secrets DUPLICATI_PASSPHRASE)
+# Restore → choose latest version → target /restore</div>
+        </details>
+      </div>
+    </div>
+
+    <div data-step="script-3" class="step-item" onclick="toggleStep(this)">
+      <div class="step-num">7b</div>
+      <div class="step-content">
+        <div class="step-title">Path B only: trigger media re-download via Radarr & Sonarr</div>
+        <div class="step-text">After the B2 restore, Radarr and Sonarr will see your full library but all files will be missing (NAS02 was unavailable). Once NAS02 is recovered and NFS mounts are up, trigger re-indexing. Or if NAS02 is permanently gone, trigger re-downloads from Usenet.</div>
+        <div class="step-code"># After NAS02 is back and NFS mounts are restored:
+# Radarr → Movies → Wanted → Search All Missing
+# Sonarr → Series → Wanted → Search All Missing
+
+# SABnzbd will queue downloads — ~100 MB/s via Usenet
+# At that rate, re-downloading all media takes time but is automatic</div>
+        <div class="step-note">💡 If this is a Path A restore, skip this step — media is already available via NFS from the NAS02.</div>
+      </div>
+    </div>
+
+    <!-- PHASE 4 -->
+    <div class="phase-header" style="margin-top: 16px;">
+      <div>
+        <div class="phase-label">Phase 4</div>
+        <div class="phase-name">Plex Reclaim</div>
+      </div>
+      <div class="phase-time">~3 min</div>
+    </div>
+
+    <div data-step="plex-1" class="step-item" onclick="toggleStep(this)">
+      <div class="step-num">8</div>
+      <div class="step-content">
+        <div class="step-title">Get a fresh Plex claim token</div>
+        <div class="step-text">Plex needs to be claimed on the new host. The token expires in 4 minutes — have your terminal ready before visiting the link.</div>
+        <div class="step-code"># 1. Visit https://www.plex.tv/claim and copy the token
+
+# 2. Edit .env:
+nano ~/homelab/compose/.env
+# Set: PLEX_CLAIM=claim-XXXXXXXXXX
+
+# 3. Recreate plex container to pick up the claim:
+cd ~/homelab/compose
+docker compose up -d plex</div>
+        <div class="step-warn">⚠ Use "up -d" not "restart" — restart doesn't re-read env vars.</div>
+      </div>
+    </div>
+
+    <div data-step="plex-2" class="step-item" onclick="toggleStep(this)">
+      <div class="step-num">9</div>
+      <div class="step-content">
+        <div class="step-title">Verify library path and clear the claim token</div>
+        <div class="step-text">Open Plex, check that libraries show up. If paths are wrong, edit each library root to <code>/media/movies</code>, <code>/media/tv</code>, <code>/media/4k</code>, <code>/media/music</code>. Then clear the claim token.</div>
+        <div class="step-code"># After Plex is claimed and libraries look good:
+# Edit .env → set PLEX_CLAIM=
+docker compose up -d plex  # restart to clear claim env var</div>
+      </div>
+    </div>
+
+    <!-- PHASE 5 -->
+    <div class="phase-header" style="margin-top: 16px;">
+      <div>
+        <div class="phase-label">Phase 5</div>
+        <div class="phase-name">Reconnect Services</div>
+      </div>
+      <div class="phase-time">~5 min</div>
+    </div>
+
+    <div data-step="reconnect-1" class="step-item" onclick="toggleStep(this)">
+      <div class="step-num">10</div>
+      <div class="step-content">
+        <div class="step-title">Update Prowlarr app URLs</div>
+        <div class="step-text">Prowlarr stores the IP of each arr app. Container names resolve internally, so if everything is on the same Docker network this may already work. If not, update each app in Prowlarr → Settings → Apps.</div>
+        <div class="step-code"># Internal container URLs (preferred — use container name):
+# Sonarr:   http://sonarr:8989
+# Radarr:   http://radarr:7878
+# Radarr4K: http://radarr4k:7878  ← internal port, NOT 7070
+# Bazarr:   http://bazarr:6767</div>
+      </div>
+    </div>
+
+    <div data-step="reconnect-2" class="step-item" onclick="toggleStep(this)">
+      <div class="step-num">11</div>
+      <div class="step-content">
+        <div class="step-title">Verify TransmissionVPN tunnel</div>
+        <div class="step-text">Confirm the VPN is routing traffic, not exposing your home IP.</div>
+        <div class="step-code">docker exec transmissionvpn curl -s ifconfig.me
+# Should return a PIA IP — NOT your home IP (YOUR_PUBLIC_IP)</div>
+        <div class="step-note">💡 TUN device: the restore script runs <code>sudo modprobe tun</code> but on modern kernels (including Ubuntu VMs) TUN is often built in — <code>lsmod | grep tun</code> returning nothing is normal if <code>/dev/net/tun</code> exists and TransmissionVPN starts correctly.</div>
+      </div>
+    </div>
+
+    <div data-step="reconnect-3" class="step-item" onclick="toggleStep(this)">
+      <div class="step-num">12</div>
+      <div class="step-content">
+        <div class="step-title">Update router port forward</div>
+        <div class="step-text">In UniFi, update the port forward rule for 32400 → new DR host IP. Plex remote access depends on this. Also update the 80/443 port forwards to point at the DR host for NPM.</div>
+        <div class="step-code"># UniFi OS → Firewall & Security → Port Forwarding
+# Rule: Forward TCP 32400 → [DR host IP]:32400
+# Rule: Forward TCP 80   → [DR host IP]:80    (NPM HTTP / Let's Encrypt)
+# Rule: Forward TCP 443  → [DR host IP]:443   (NPM HTTPS)</div>
+      </div>
+    </div>
+
+    <div data-step="reconnect-4" class="step-item" onclick="toggleStep(this)">
+      <div class="step-num">13</div>
+      <div class="step-content">
+        <div class="step-title">Reconfigure Nginx Proxy Manager</div>
+        <div class="step-text">NPM's proxy host config is stored in appdata and restored by Duplicati — it should come up automatically with all proxy hosts intact. Verify at <code>http://[DR host]:81</code>. If the wildcard cert needs renewal, NPM will handle it automatically via Cloudflare DNS challenge using the key in your <code>.env</code>.</div>
+        <div class="step-note">💡 If proxy hosts are missing, re-add them manually: plex.yourdomain.com → plex:32400, seerr.yourdomain.com → seerr:5055. Select the *.yourdomain.com wildcard cert for both.</div>
+        <div class="step-warn">⚠ QTS runs on port 8443 on the NAS01 — if restoring to the NAS01 itself, ensure port 443 is free for NPM before starting it.</div>
+      </div>
+    </div>
+
+    <div data-step="reconnect-5" class="step-item" onclick="toggleStep(this)">
+      <div class="step-num">14</div>
+      <div class="step-content">
+        <div class="step-title">Trigger Recyclarr sync</div>
+        <div class="step-text">Recyclarr runs daily automatically, but trigger a manual sync after DR to ensure quality profiles are current.</div>
+        <div class="step-code">docker exec recyclarr recyclarr sync</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ================================================================== -->
+  <!-- VERIFICATION                                                          -->
+  <!-- ================================================================== -->
+  <div class="section" id="verify">
+    <div class="section-title"><span class="icon">✅</span> Post-Restore Verification</div>
+
+    <div data-step="vfy-1" class="step-item" onclick="toggleStep(this)">
+      <div class="step-num">✓</div>
+      <div class="step-content">
+        <div class="step-title">All 19 containers show Running</div>
+        <div class="step-code">cd ~/homelab/compose && docker compose ps</div>
+      </div>
+    </div>
+
+    <div data-step="vfy-2" class="step-item" onclick="toggleStep(this)">
+      <div class="step-num">✓</div>
+      <div class="step-content">
+        <div class="step-title">Plex plays a file (internal)</div>
+        <div class="step-text">Open Plex, play 30 seconds of a movie. Confirms NFS media mount and library paths are correct.</div>
+      </div>
+    </div>
+
+    <div data-step="vfy-3" class="step-item" onclick="toggleStep(this)">
+      <div class="step-num">✓</div>
+      <div class="step-content">
+        <div class="step-title">Plex remote access enabled</div>
+        <div class="step-text">Settings → Remote Access → should show "Fully accessible outside your network"</div>
+      </div>
+    </div>
+
+    <div data-step="vfy-4" class="step-item" onclick="toggleStep(this)">
+      <div class="step-num">✓</div>
+      <div class="step-content">
+        <div class="step-title">Sonarr & Radarr health checks clear</div>
+        <div class="step-text">System → Status in each arr app — should show green (or only minor indexer warnings).</div>
+      </div>
+    </div>
+
+    <div data-step="vfy-5" class="step-item" onclick="toggleStep(this)">
+      <div class="step-num">✓</div>
+      <div class="step-content">
+        <div class="step-title">VPN IP confirmed ≠ home IP</div>
+        <div class="step-code">docker exec transmissionvpn curl -s ifconfig.me
+# Expected: PIA IP, not YOUR_PUBLIC_IP</div>
+      </div>
+    </div>
+
+    <div data-step="vfy-6" class="step-item" onclick="toggleStep(this)">
+      <div class="step-num">✓</div>
+      <div class="step-content">
+        <div class="step-title">Duplicati backup job scheduled on new host</div>
+        <div class="step-text">Import <code>~/homelab/duplicati/homelab-appdata-backup.json</code> into Duplicati at :8200 (Add Backup → Import from file). Run a manual backup to confirm it works from the new location.</div>
+      </div>
+    </div>
+
+    <div data-step="vfy-7" class="step-item" onclick="toggleStep(this)">
+      <div class="step-num">✓</div>
+      <div class="step-content">
+        <div class="step-title">Uptime Kuma monitors are green</div>
+        <div class="step-text">Open :3001 — all monitors should go green once containers stabilize. Update any monitors that reference the old host IP.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================================================================== -->
+  <!-- SERVICE REFERENCE                                                    -->
+  <!-- ================================================================== -->
+  <div class="section" id="services">
+    <div class="section-title"><span class="icon">🔌</span> Service Reference</div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Service</th>
+          <th>Container</th>
+          <th>Port</th>
+          <th>URL (replace HOST)</th>
+          <th>Category</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td><strong>Plex</strong></td><td><code>plex</code></td><td class="port-cell">32400</td><td class="url-cell">http://HOST:32400/web</td><td><span class="badge badge-blue">Media</span></td></tr>
+        <tr><td><strong>Sonarr</strong></td><td><code>sonarr</code></td><td class="port-cell">8989</td><td class="url-cell">http://HOST:8989</td><td><span class="badge badge-purple">Arr</span></td></tr>
+        <tr><td><strong>Radarr</strong></td><td><code>radarr</code></td><td class="port-cell">7878</td><td class="url-cell">http://HOST:7878</td><td><span class="badge badge-purple">Arr</span></td></tr>
+        <tr><td><strong>Radarr4K</strong></td><td><code>radarr4k</code></td><td class="port-cell">7070 ext / 7878 int</td><td class="url-cell">http://HOST:7070</td><td><span class="badge badge-purple">Arr</span></td></tr>
+        <tr><td><strong>Bazarr</strong></td><td><code>bazarr</code></td><td class="port-cell">6767</td><td class="url-cell">http://HOST:6767</td><td><span class="badge badge-purple">Arr</span></td></tr>
+        <tr><td><strong>Prowlarr</strong></td><td><code>prowlarr</code></td><td class="port-cell">9696</td><td class="url-cell">http://HOST:9696</td><td><span class="badge badge-purple">Arr</span></td></tr>
+        <tr><td><strong>FlareSolverr</strong></td><td><code>flaresolverr</code></td><td class="port-cell">8191</td><td class="url-cell">http://HOST:8191</td><td><span class="badge badge-muted">Arr support</span></td></tr>
+        <tr><td><strong>Transmission</strong></td><td><code>transmissionvpn</code></td><td class="port-cell">9091</td><td class="url-cell">http://HOST:9091</td><td><span class="badge badge-yellow">Downloads</span></td></tr>
+        <tr><td><strong>Seerr (Jellyseerr)</strong></td><td><code>seerr</code></td><td class="port-cell">5055</td><td class="url-cell">http://HOST:5055</td><td><span class="badge badge-green">Requests</span></td></tr>
+        <tr><td><strong>Organizr</strong></td><td><code>organizr</code></td><td class="port-cell">8006</td><td class="url-cell">http://HOST:8006</td><td><span class="badge badge-muted">Dashboard</span></td></tr>
+        <tr><td><strong>Agregarr</strong></td><td><code>agregarr</code></td><td class="port-cell">7171</td><td class="url-cell">http://HOST:7171</td><td><span class="badge badge-muted">Dashboard</span></td></tr>
+        <tr><td><strong>Tautulli</strong></td><td><code>tautulli</code></td><td class="port-cell">8181</td><td class="url-cell">http://HOST:8181</td><td><span class="badge badge-muted">Stats</span></td></tr>
+        <tr><td><strong>Tdarr</strong></td><td><code>tdarr</code></td><td class="port-cell">8265</td><td class="url-cell">http://HOST:8265</td><td><span class="badge badge-muted">Transcode</span></td></tr>
+        <tr><td><strong>Stirling PDF</strong></td><td><code>stirling-pdf</code></td><td class="port-cell">8585</td><td class="url-cell">http://HOST:8585</td><td><span class="badge badge-muted">Tools</span></td></tr>
+        <tr><td><strong>Nginx Proxy Manager</strong></td><td><code>npm</code></td><td class="port-cell">81 admin / 80,443</td><td class="url-cell">http://HOST:81</td><td><span class="badge badge-green">Proxy</span></td></tr>
+        <tr><td><strong>Duplicati</strong></td><td><code>duplicati</code></td><td class="port-cell">8200</td><td class="url-cell">http://HOST:8200</td><td><span class="badge badge-green">Backup</span></td></tr>
+        <tr><td><strong>Uptime Kuma</strong></td><td><code>uptimekuma</code></td><td class="port-cell">3001</td><td class="url-cell">http://HOST:3001</td><td><span class="badge badge-green">Monitor</span></td></tr>
+        <tr><td><strong>Recyclarr</strong></td><td><code>recyclarr</code></td><td class="port-cell">—</td><td class="url-cell">(no UI — syncs TRaSH profiles daily)</td><td><span class="badge badge-muted">Quality</span></td></tr>
+        <tr><td><strong>Watchtower</strong></td><td><code>watchtower</code></td><td class="port-cell">—</td><td class="url-cell">(no UI — updates at 4am daily)</td><td><span class="badge badge-muted">Auto-update</span></td></tr>
+      </tbody>
+    </table>
+
+    <div class="card" style="margin-top: 16px;">
+      <strong>Inter-container addressing</strong>
+      <div style="font-size: 13px; color: var(--muted); margin-top: 6px;">All containers share the <code>homelab</code> Docker network. Use container names (not IPs) for inter-service config: <code>http://sonarr:8989</code>, <code>http://radarr4k:7878</code> (internal port), <code>http://transmissionvpn:9091</code></div>
+    </div>
+  </div>
+
+  <!-- ================================================================== -->
+  <!-- MAINTENANCE                                                           -->
+  <!-- ================================================================== -->
+  <div class="section" id="maintenance">
+    <div class="section-title"><span class="icon">🔧</span> DR Maintenance Tasks</div>
+    <div style="font-size: 13px; color: var(--muted); margin-bottom: 16px;">Keep these current so the 30-min target stays achievable.</div>
+
+    <div class="card">
+      <div class="maint-item">
+        <div class="maint-freq">Monthly</div>
+        <div class="maint-task">
+          <div><strong>Test restore on DR host</strong></div>
+          <div class="maint-reason">Run restore.sh to a VM and verify containers come up and Plex plays. The only way to know your backup works is to test it.</div>
+        </div>
+      </div>
+      <div class="maint-item">
+        <div class="maint-freq">Monthly</div>
+        <div class="maint-task">
+          <div><strong>Pre-pull Docker images on DR host</strong></div>
+          <div class="maint-reason">Eliminates the 15-20 min image pull from the RTO. Run on whatever machine you'd use for DR.</div>
+          <div class="step-code" style="margin-top:6px">cd ~/homelab/compose && docker compose pull</div>
+        </div>
+      </div>
+      <div class="maint-item">
+        <div class="maint-freq">Monthly</div>
+        <div class="maint-task">
+          <div><strong>Verify both Duplicati jobs in UI</strong></div>
+          <div class="maint-reason">Open :8200, check both "Homelab AppData → NAS02" and "Homelab AppData → B2" last run status. Run "Verify files" on B2 job periodically to confirm offsite integrity.</div>
+        </div>
+      </div>
+      <div class="maint-item">
+        <div class="maint-freq">On change</div>
+        <div class="maint-task">
+          <div><strong>Update B2_KEY_ID / B2_APPLICATION_KEY in password manager</strong></div>
+          <div class="maint-reason">If you rotate B2 application keys, update ~/.homelab.secrets and re-sync to your password manager. The B2 restore path requires these credentials.</div>
+        </div>
+      </div>
+      <div class="maint-item">
+        <div class="maint-freq">On change</div>
+        <div class="maint-task">
+          <div><strong>Update ~/.homelab.secrets in password manager</strong></div>
+          <div class="maint-reason">After any credential change (PIA password rotation, new Duplicati passphrase), update the secrets file and re-sync to your password manager.</div>
+        </div>
+      </div>
+      <div class="maint-item">
+        <div class="maint-freq">On change</div>
+        <div class="maint-task">
+          <div><strong>Commit compose changes to GitHub</strong></div>
+          <div class="maint-reason">The repo is the source of truth for the stack definition. Any time you add/remove/change a service, commit it.</div>
+          <div class="step-code" style="margin-top:6px">cd ~/homelab && git add compose/ && git commit -m "describe change" && git push</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="text-align: center; padding: 32px 0; color: var(--muted); font-size: 12px;">
+    Homelab DR Playbook · github.com/yourusername/homelab · Last updated: <span id="lastUpdated"></span>
+  </div>
+
+</div>
+
+<style>
+  .badge-purple { background: #2a1f3a; color: var(--purple); }
+</style>
+
+<script>
+  // Last updated
+  document.getElementById('lastUpdated').textContent = document.lastModified.split(' ')[0] || new Date().toLocaleDateString();
+
+  // Load state from localStorage
+  const STORAGE_KEY = 'homelab-dr-steps';
+  const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+
+  // Restore saved state
+  document.querySelectorAll('[data-step]').forEach(el => {
+    if (saved[el.dataset.step]) el.classList.add('done');
+  });
+
+  updateProgress();
+
+  function toggleStep(el) {
+    el.classList.toggle('done');
+    const state = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+    state[el.dataset.step] = el.classList.contains('done');
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    updateProgress();
+  }
+
+  function resetSteps() {
+    if (!confirm('Reset all checklist items?')) return;
+    localStorage.removeItem(STORAGE_KEY);
+    document.querySelectorAll('[data-step]').forEach(el => el.classList.remove('done'));
+    updateProgress();
+  }
+
+  function updateProgress() {
+    const all = document.querySelectorAll('[data-step]');
+    const done = document.querySelectorAll('[data-step].done');
+    const pct = all.length ? Math.round((done.length / all.length) * 100) : 0;
+    document.getElementById('progressFill').style.width = pct + '%';
+    document.getElementById('progressLabel').textContent =
+      pct === 100
+        ? '🎉 All steps complete — stack should be up!'
+        : `${done.length} of ${all.length} steps complete (${pct}%)`;
+  }
+</script>
+</body>
+</html>
