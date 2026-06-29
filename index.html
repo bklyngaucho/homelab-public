@@ -151,6 +151,10 @@
     padding: 0.1rem 0.45rem;
     border-radius: 3px;
   }
+  .card-featured {
+    border-color: var(--teal);
+    background: linear-gradient(135deg, #0c4a6e22, var(--surface));
+  }
 
   /* ── Link list ── */
   .link-list {
@@ -264,6 +268,13 @@
   <section>
     <h2><span>◈</span>Pages</h2>
     <div class="card-grid">
+
+      <a class="card card-featured" href="showcase.html">
+        <span class="card-icon">🤖</span>
+        <div class="card-title">Claude + Homelab Showcase</div>
+        <div class="card-desc">Before/after narrative: running a homelab with Claude as your ops partner. Skills, CLAUDE.md deep-dive, and real debug + DR case studies.</div>
+        <span class="card-tag">showcase.html</span>
+      </a>
 
       <a class="card" href="dr/playbook.html">
         <span class="card-icon">🚨</span>
