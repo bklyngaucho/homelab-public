@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Running a Homelab with Claude as Your Ops Partner</title>
+<style>
+:root {
+  --navy:     #0F1E36;
+  --navyMid:  #1B2A4A;
+  --teal:     #0891B2;
+  --tealLt:   #BAE6FD;
+  --green:    #10B981;
+  --amber:    #F59E0B;
+  --red:      #EF4444;
+  --white:    #FFFFFF;
+  --offWhite: #F8FAFC;
+  --slate:    #64748B;
+  --slateD:   #334155;
+  --slateL:   #CBD5E1;
+  --border:   #E2E8F0;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: var(--offWhite); color: var(--slateD); line-height: 1.6; }
+
+nav {
+  background: var(--navy); border-bottom: 2px solid var(--teal);
+  padding: 0.75rem 1.5rem; display: flex; align-items: center; gap: 1rem;
+  position: sticky; top: 0; z-index: 100; flex-wrap: wrap;
+}
+.nav-title { color: var(--white); font-weight: 700; font-size: 0.9rem; margin-right: auto; }
+.nav-title span { color: var(--teal); }
+.nav-links { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+.nav-links a { color: var(--slateL); text-decoration: none; font-size: 0.78rem; padding: 0.2rem 0.55rem; border-radius: 4px; transition: background 0.15s, color 0.15s; }
+.nav-links a:hover { background: rgba(8,145,178,0.2); color: var(--teal); }
+
+.slide { min-height: 100vh; display: flex; flex-direction: column; justify-content: center; padding: 4rem 2rem; scroll-margin-top: 50px; }
+.slide-dark  { background: var(--navy); color: var(--white); }
+.slide-light { background: var(--offWhite); color: var(--slateD); }
+.slide-inner { max-width: 1000px; margin: 0 auto; width: 100%; }
+
+.slide-label { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.15em; color: var(--teal); text-transform: uppercase; margin-bottom: 0.75rem; }
+.divider { width: 3rem; height: 3px; background: var(--teal); margin-bottom: 1.25rem; border-radius: 2px; }
+
+h1 { font-size: clamp(1.8rem, 5vw, 3rem); font-weight: 700; line-height: 1.15; }
+h2 { font-size: clamp(1.3rem, 3vw, 1.8rem); font-weight: 700; margin-bottom: 1.5rem; color: var(--navyMid); }
+h3 { font-size: 0.95rem; font-weight: 700; margin-bottom: 0.3rem; }
+p  { font-size: 0.92rem; line-height: 1.65; }
+
+.teal  { color: var(--teal); }
+.muted { color: var(--slateL); }
+
+.card-grid { display: grid; gap: 1rem; margin-top: 1rem; }
+.cols-2 { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+.cols-3 { grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+
+.card { background: var(--white); border: 1px solid var(--border); border-radius: 10px; padding: 1.2rem 1.35rem; box-shadow: 0 2px 8px rgba(0,0,0,0.07); }
+.card-dark { background: var(--navyMid); border: 1px solid #2A3F5F; border-radius: 10px; padding: 1.2rem 1.35rem; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+
+.icon-circle { width: 36px; height: 36px; background: var(--teal); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 1rem; color: white; flex-shrink: 0; margin-bottom: 0.75rem; }
+.icon-red   { background: var(--red); }
+.icon-amber { background: var(--amber); }
+.icon-green { background: var(--green); }
+
+.card-header { display: flex; align-items: flex-start; gap: 0.75rem; margin-bottom: 0.4rem; }
+.card-header .icon-circle { margin-bottom: 0; margin-top: 0.1rem; }
+
+.stat-row { display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 2rem; }
+.stat-box { background: var(--navyMid); border: 1px solid #2A3F5F; border-radius: 8px; padding: 1rem 1.25rem; text-align: center; flex: 1; min-width: 130px; }
+.stat-box .num { font-size: 1.9rem; font-weight: 700; color: var(--teal); display: block; line-height: 1.1; }
+.stat-box .label { font-size: 0.75rem; color: var(--slateL); display: block; margin-top: 0.2rem; font-weight: 600; }
+.stat-box .sub { font-size: 0.68rem; color: var(--slate); display: block; margin-top: 0.1rem; }
+
+.code-block { background: #0D1117; border-radius: 8px; padding: 1.2rem 1.35rem; font-family: 'Courier New', Courier, monospace; font-size: 0.8rem; line-height: 1.65; overflow-x: auto; box-shadow: 0 2px 12px rgba(0,0,0,0.3); }
+.code-block .window-dots { display: flex; gap: 6px; margin-bottom: 0.75rem; }
+.dot { width: 12px; height: 12px; border-radius: 50%; }
+.dot-r { background: #EF4444; } .dot-y { background: #F59E0B; } .dot-g { background: #10B981; }
+.code-block .fn   { color: #58A6FF; font-weight: 700; }
+.code-block .str  { color: #79C0FF; }
+.code-block .warn { color: #FF7B72; }
+.code-block .dim  { color: #6B7280; }
+.code-block .norm { color: #C9D1D9; }
+
+.skill-row { display: flex; align-items: flex-start; gap: 1rem; background: var(--white); border: 1px solid var(--border); border-radius: 8px; padding: 0.85rem 1rem; box-shadow: 0 1px 4px rgba(0,0,0,0.06); margin-bottom: 0.6rem; }
+.skill-row .icon-circle { flex-shrink: 0; margin-bottom: 0; }
+.skill-meta { flex: 0 0 260px; }
+.skill-name { font-family: 'Courier New', monospace; font-size: 0.8rem; font-weight: 700; color: var(--navyMid); display: block; margin-bottom: 0.2rem; }
+.skill-trigger { font-size: 0.78rem; font-style: italic; color: var(--teal); }
+.skill-desc { font-size: 0.85rem; color: var(--slateD); flex: 1; }
+
+.chat-bubble { margin-bottom: 0.45rem; }
+.chat-bubble .who { font-size: 0.7rem; font-weight: 700; margin-bottom: 0.12rem; }
+.who.you   { color: var(--teal); }
+.who.claude { color: var(--green); }
+.chat-bubble .msg { font-size: 0.83rem; padding: 0.38rem 0.65rem; border-radius: 6px; display: inline-block; max-width: 100%; }
+.you   .msg { background: rgba(8,145,178,0.12); color: var(--white); }
+.claude .msg { background: rgba(16,185,129,0.1); color: var(--slateL); }
+
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; align-items: start; }
+@media (max-width: 700px) { .two-col { grid-template-columns: 1fr; } .skill-meta { flex: unset; } .skill-row { flex-direction: column; } }
+
+.tagline { font-size: 0.88rem; font-style: italic; color: var(--slate); margin-top: 1.5rem; text-align: center; padding: 0.75rem 1rem; border-top: 1px solid var(--border); }
+
+.badge-row { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1.25rem; }
+.badge { background: rgba(8,145,178,0.15); border: 1px solid var(--teal); color: var(--teal); border-radius: 4px; padding: 0.2rem 0.65rem; font-size: 0.72rem; font-family: monospace; letter-spacing: 0.06em; text-transform: uppercase; }
+
+footer { background: var(--navy); border-top: 2px solid var(--teal); padding: 2rem; text-align: center; color: var(--slateL); font-size: 0.85rem; }
+footer a { color: var(--teal); text-decoration: none; }
+footer a:hover { text-decoration: underline; }
+
+.hw-table { width: 100%; border-collapse: collapse; font-size: 0.84rem; margin-top: 0.5rem; }
+.hw-table th { text-align: left; color: var(--teal); font-size: 0.7rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding: 0.35rem 0.7rem; border-bottom: 1px solid #2A3F5F; }
+.hw-table td { padding: 0.5rem 0.7rem; border-bottom: 1px solid rgba(42,63,95,0.4); color: var(--slateL); vertical-align: top; }
+.hw-table tr:last-child td { border-bottom: none; }
+.hw-table code { color: var(--teal); font-family: monospace; font-size: 0.78rem; }
+.hw-table .role { color: var(--slate); font-size: 0.8rem; }
+
+.svc-row { display: flex; gap: 0.5rem; align-items: baseline; padding: 0.28rem 0; }
+.svc-cat { color: var(--teal); font-size: 0.7rem; font-weight: 700; letter-spacing: 0.06em; width: 72px; flex-shrink: 0; }
+.svc-list { color: var(--slateD); font-size: 0.82rem; }
+
+code.inline { background: #f1f5f9; padding: 1px 5px; border-radius: 3px; font-size: 0.8rem; font-family: 'Courier New', monospace; }
+code.inline-dark { background: rgba(255,255,255,0.08); padding: 1px 6px; border-radius: 3px; font-family: 'Courier New', monospace; }
+</style>
+</head>
+<body>
+
+<nav>
+  <span class="nav-title">Homelab <span>× Claude</span></span>
+  <div class="nav-links">
+    <a href="#title">Intro</a>
+    <a href="#stack">Stack</a>
+    <a href="#before">Before</a>
+    <a href="#shift">The Shift</a>
+    <a href="#claudemd">CLAUDE.md</a>
+    <a href="#skills">Skills</a>
+    <a href="#tdarr">Debug</a>
+    <a href="#addservice">Add Service</a>
+    <a href="#dr">DR</a>
+    <a href="#start">Get Started</a>
+  </div>
+</nav>
+
+<!-- SLIDE 1: Title -->
+<section class="slide slide-dark" id="title">
+  <div class="slide-inner">
+    <div class="badge-row">
+      <span class="badge">22 containers</span>
+      <span class="badge">36 TB ZFS</span>
+      <span class="badge">2 Gbps fiber</span>
+      <span class="badge">Claude-assisted</span>
+    </div>
+    <h1>Running a Homelab<br><span class="teal">with Claude as Your Ops Partner</span></h1>
+    <p class="muted" style="margin-top:0.75rem;font-size:1rem;">22 containers &middot; 3 hosts &middot; 1 AI that knows the whole stack</p>
+    <div class="stat-row">
+      <div class="stat-box"><span class="num">22</span><span class="label">Containers</span></div>
+      <div class="stat-box"><span class="num">36 TB</span><span class="label">NAS Storage</span></div>
+      <div class="stat-box"><span class="num">5</span><span class="label">Claude Skills</span></div>
+      <div class="stat-box"><span class="num">22 min</span><span class="label">DR RTO (tested)</span><span class="sub">May 2026</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- SLIDE 2: The Stack -->
+<section class="slide slide-light" id="stack">
+  <div class="slide-inner">
+    <p class="slide-label">Context</p>
+    <div class="divider"></div>
+    <h2>The Stack</h2>
+    <div class="two-col">
+      <div class="card-dark">
+        <p style="font-size:0.7rem;font-weight:700;letter-spacing:0.12em;color:var(--teal);text-transform:uppercase;margin-bottom:0.9rem;">Hardware</p>
+        <table class="hw-table">
+          <thead><tr><th>Host</th><th>Role</th><th>IP</th></tr></thead>
+          <tbody>
+            <tr><td>UniFi UXG-Fiber</td><td class="role">Router / firewall / DHCP</td><td><code>192.168.1.1</code></td></tr>
+            <tr><td>NAS01</td><td class="role">Primary compute &mdash; 22 containers &middot; bond0 2&times;1GbE</td><td><code>192.168.1.33</code></td></tr>
+            <tr><td>NAS02 / TrueNAS</td><td class="role">36 TB ZFS &middot; Tdarr transcode node (4 CPU workers)</td><td><code>192.168.1.31</code></td></tr>
+            <tr><td>Lenovo P360</td><td class="role">AI workstation &mdash; Ollama / Open WebUI</td><td><code>&mdash;</code></td></tr>
+            <tr><td>10GbE direct link</td><td class="role">NAS01 &harr; NAS02 &middot; ~780 MB/s read / ~1 GB/s write</td><td><code>10.10.10.x</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="card">
+        <p style="font-size:0.7rem;font-weight:700;letter-spacing:0.12em;color:var(--teal);text-transform:uppercase;margin-bottom:0.9rem;">Container Stack (22)</p>
+        <div class="svc-row"><span class="svc-cat">MEDIA</span><span class="svc-list">Plex &middot; Tdarr</span></div>
+        <div class="svc-row"><span class="svc-cat">ARR</span><span class="svc-list">Sonarr &middot; Radarr &middot; Radarr4K &middot; Bazarr &middot; Prowlarr</span></div>
+        <div class="svc-row"><span class="svc-cat">DOWNLOAD</span><span class="svc-list">SABnzbd &middot; TransmissionVPN (PIA)</span></div>
+        <div class="svc-row"><span class="svc-cat">REQUEST</span><span class="svc-list">Seerr (Jellyseerr)</span></div>
+        <div class="svc-row"><span class="svc-cat">NETWORK</span><span class="svc-list">Nginx Proxy Manager &middot; Technitium DNS &middot; Tailscale</span></div>
+        <div class="svc-row"><span class="svc-cat">INFRA</span><span class="svc-list">Duplicati &middot; Uptime Kuma &middot; Watchtower</span></div>
+        <div class="svc-row"><span class="svc-cat">TOOLS</span><span class="svc-list">Stirling PDF &middot; Organizr &middot; Tautulli &middot; Agregarr &middot; FlareSolverr</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SLIDE 3: Before -->
+<section class="slide slide-dark" id="before">
+  <div class="slide-inner">
+    <p class="slide-label">Before</p>
+    <div class="divider"></div>
+    <h2 style="color:white;">Before Claude</h2>
+    <p class="muted" style="margin-bottom:1.5rem;">Ops lived entirely in your head</p>
+    <div class="card-grid cols-2">
+      <div class="card-dark">
+        <div class="card-header">
+          <div class="icon-circle">?</div>
+          <div><h3 style="color:white;">Debug by memory</h3></div>
+        </div>
+        <p class="muted">SSH into the box, grep logs, hope you remember what changed last week</p>
+      </div>
+      <div class="card-dark">
+        <div class="card-header">
+          <div class="icon-circle">~</div>
+          <div><h3 style="color:white;">Docs? What docs?</h3></div>
+        </div>
+        <p class="muted">Config quirks stored in your brain. Muscle memory for every service restart</p>
+      </div>
+      <div class="card-dark">
+        <div class="card-header">
+          <div class="icon-circle">!</div>
+          <div><h3 style="color:white;">Reactive only</h3></div>
+        </div>
+        <p class="muted">Something breaks at 2 AM. You're debugging cold with no context</p>
+      </div>
+      <div class="card-dark">
+        <div class="card-header">
+          <div class="icon-circle">&gt;</div>
+          <div><h3 style="color:white;">Repeat yourself constantly</h3></div>
+        </div>
+        <p class="muted">"How do I restart Tdarr without losing the queue again?" &mdash; googled every time</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SLIDE 4: The Shift -->
+<section class="slide slide-light" id="shift">
+  <div class="slide-inner">
+    <p class="slide-label">Approach</p>
+    <div class="divider"></div>
+    <h2>The Shift: Claude as Ops Partner</h2>
+    <div class="card-grid cols-3">
+      <div class="card">
+        <div class="icon-circle" style="font-size:1.1rem;font-weight:900;">1</div>
+        <h3 style="color:var(--navyMid);font-size:1.05rem;margin-bottom:0.5rem;">CLAUDE.md</h3>
+        <p>A single file that gives Claude complete context: hardware specs, network layout, known quirks, SSH paths, API endpoints. Claude reads this at the start of every session.</p>
+      </div>
+      <div class="card">
+        <div class="icon-circle" style="font-size:1.1rem;font-weight:900;">2</div>
+        <h3 style="color:var(--navyMid);font-size:1.05rem;margin-bottom:0.5rem;">Skills</h3>
+        <p>Installable workflows that encode tribal knowledge into repeatable actions. "Add a service," "audit a container," "review last night's updates" &mdash; run in plain English.</p>
+      </div>
+      <div class="card">
+        <div class="icon-circle" style="font-size:1.1rem;font-weight:900;">3</div>
+        <h3 style="color:var(--navyMid);font-size:1.05rem;margin-bottom:0.5rem;">Structured Memory</h3>
+        <p>Claude builds memory across sessions. Diagnose a tricky Tdarr bug today; next session Claude already knows the fix, the root cause, and what to watch for.</p>
+      </div>
+    </div>
+    <div class="tagline">Claude doesn't just answer questions &mdash; it holds the full operational context of your homelab</div>
+  </div>
+</section>
+
+<!-- SLIDE 5: CLAUDE.md -->
+<section class="slide slide-light" id="claudemd">
+  <div class="slide-inner">
+    <p class="slide-label">Context File</p>
+    <div class="divider"></div>
+    <h2>CLAUDE.md &mdash; The Brain of the Operation</h2>
+    <div class="two-col">
+      <div class="card-dark">
+        <p style="font-size:0.7rem;font-weight:700;letter-spacing:0.12em;color:var(--teal);text-transform:uppercase;margin-bottom:0.9rem;">What it contains</p>
+        <div style="display:flex;flex-direction:column;gap:0.7rem;">
+          <div><p style="color:white;font-weight:700;font-size:0.88rem;">Hardware table</p><p class="muted" style="font-size:0.8rem;">Every host, IP, role, and interface</p></div>
+          <div><p style="color:white;font-weight:700;font-size:0.88rem;">Key file paths</p><p class="muted" style="font-size:0.8rem;">Compose stack, appdata dirs, secrets</p></div>
+          <div><p style="color:white;font-weight:700;font-size:0.88rem;">Container quirks</p><p class="muted" style="font-size:0.8rem;">Plex NVENC config, Duplicati DB tricks, Tdarr schedule gotchas</p></div>
+          <div><p style="color:white;font-weight:700;font-size:0.88rem;">Apply procedure</p><p class="muted" style="font-size:0.8rem;">SCP, SSH, docker compose commands</p></div>
+          <div><p style="color:white;font-weight:700;font-size:0.88rem;">DNS &amp; proxy</p><p class="muted" style="font-size:0.8rem;">NPM hosts, Cloudflare zone, Technitium notes</p></div>
+          <div><p style="color:white;font-weight:700;font-size:0.88rem;">Python paths</p><p class="muted" style="font-size:0.8rem;">Two versions on NAS01 and when to use each</p></div>
+        </div>
+      </div>
+      <div>
+        <div class="code-block">
+          <div class="window-dots"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div></div>
+<span class="fn">## Hardware context</span>
+
+<span class="norm">| Host | Role | IP |</span>
+<span class="dim">|---|---|---|</span>
+<span class="norm">| NAS01         | Primary compute — 22 containers | 192.168.1.33 |</span>
+<span class="norm">| NAS02/TrueNAS | ZFS storage + Tdarr node       | 192.168.1.31 |</span>
+
+<span class="fn">## Notable configuration details</span>
+
+<span class="str">- Plex uses lscr.io/linuxserver/plex —</span>
+<span class="str">  stays on bridge networking, not host mode</span>
+<span class="str">- Tdarr: NAS01-node 8am–12pm,</span>
+<span class="str">  NAS02-node 24/7 (4 CPU workers)</span>
+<span class="warn">- sqlite3 NOT available in Duplicati container</span>
+<span class="warn">  → use Python on NAS01 directly</span>
+<span class="str">- After tdarr restart: UI → Libraries</span>
+<span class="str">  → Scan All (find fresh) to rebuild queue</span>
+        </div>
+        <p style="font-size:0.78rem;color:var(--slate);margin-top:0.6rem;">Version-controlled with the repo. Evolves as you learn new quirks.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SLIDE 6: Skills -->
+<section class="slide slide-light" id="skills">
+  <div class="slide-inner">
+    <p class="slide-label">Skills</p>
+    <div class="divider"></div>
+    <h2>Skills &mdash; Workflows in Plain English</h2>
+
+    <div class="skill-row">
+      <div class="icon-circle">+</div>
+      <div class="skill-meta">
+        <span class="skill-name">homelab-add-service</span>
+        <span class="skill-trigger">"add SABnzbd to the homelab"</span>
+      </div>
+      <p class="skill-desc">Writes compose entry, env vars, deploys to NAS01, adds NPM proxy host + Uptime Kuma monitor. Handles port conflict checking and appdata dir creation.</p>
+    </div>
+
+    <div class="skill-row">
+      <div class="icon-circle">A</div>
+      <div class="skill-meta">
+        <span class="skill-name">homelab-service-audit</span>
+        <span class="skill-trigger">"audit my Tdarr config"</span>
+      </div>
+      <p class="skill-desc">Checks against official docs + community best practices. Prioritised Hi/Med/Lo findings with specific remediation steps.</p>
+    </div>
+
+    <div class="skill-row">
+      <div class="icon-circle">H</div>
+      <div class="skill-meta">
+        <span class="skill-name">homelab-health-check</span>
+        <span class="skill-trigger">"how's the stack looking?"</span>
+      </div>
+      <p class="skill-desc">Parallel health check across all services: Docker containers, TrueNAS pool, iDRAC sensors, Duplicati last run. Produces a &#10003;/&#9888;/&#10007; summary report.</p>
+    </div>
+
+    <div class="skill-row">
+      <div class="icon-circle">U</div>
+      <div class="skill-meta">
+        <span class="skill-name">homelab-update-review</span>
+        <span class="skill-trigger">"what updated last night?"</span>
+      </div>
+      <p class="skill-desc">Reads Watchtower logs, checks health of every updated container, flags regressions. Runs every morning after the 4 AM Watchtower cron.</p>
+    </div>
+
+    <div class="skill-row">
+      <div class="icon-circle">G</div>
+      <div class="skill-meta">
+        <span class="skill-name">homelab-git-push</span>
+        <span class="skill-trigger">"save my changes"</span>
+      </div>
+      <p class="skill-desc">Checks what changed, sweeps docs for anything stale, writes a descriptive commit message, stages, commits, and pushes to GitHub. One command.</p>
+    </div>
+  </div>
+</section>
+
+<!-- SLIDE 7: Tdarr debug -->
+<section class="slide slide-light" id="tdarr">
+  <div class="slide-inner">
+    <p class="slide-label">Case Study: Debug</p>
+    <div class="divider"></div>
+    <h2>Real Example: "Why Did 1,003 Files Error?"</h2>
+    <div class="card-grid cols-2" style="align-items:start;">
+      <div class="card" style="border-left:3px solid var(--red);">
+        <div class="card-header"><div class="icon-circle icon-red">1</div><div><h3>The symptom</h3></div></div>
+        <p>1,003 files batch-stamped "Transcode error" overnight. No obvious pattern. Workers showing idle despite 7,000+ files queued.</p>
+      </div>
+      <div class="card" style="border-left:3px solid var(--amber);">
+        <div class="card-header"><div class="icon-circle icon-amber">2</div><div><h3>Claude digs in</h3></div></div>
+        <p>Reads Watchtower logs &rarr; spots NAS02-node restart timestamp &rarr; cross-references tdarr server update time. Timestamps align exactly.</p>
+      </div>
+      <div class="card" style="border-left:3px solid var(--amber);">
+        <div class="card-header"><div class="icon-circle icon-amber">3</div><div><h3>Root cause</h3></div></div>
+        <p><code class="inline">enableDockerAutoUpdater=true</code> caused the node to restart mid-transcode when Watchtower updated the server image. All in-flight transcodes errored.</p>
+      </div>
+      <div class="card" style="border-left:3px solid var(--green);">
+        <div class="card-header"><div class="icon-circle icon-green">4</div><div><h3>Fix + prevention</h3></div></div>
+        <p>Pin both images to <code class="inline">2.80.01</code>. Add <code class="inline">watchtower.enable=false</code> label. Set <code class="inline">enableDockerAutoUpdater=false</code> on NAS02-node.</p>
+      </div>
+      <div class="card" style="border-left:3px solid var(--green);grid-column:1/-1;">
+        <div class="card-header"><div class="icon-circle icon-green">5</div><div><h3>Recovery</h3></div></div>
+        <p>Live Python script via <code class="inline">docker exec</code> updates 1,003 SQLite rows from "Transcode error" &rarr; "Queued" &mdash; no container restart required. All files reprocessed overnight.</p>
+      </div>
+    </div>
+    <div class="tagline">Total debugging time: ~15 minutes. Without CLAUDE.md context: hours of log archaeology.</div>
+  </div>
+</section>
+
+<!-- SLIDE 8: Add service -->
+<section class="slide slide-light" id="addservice">
+  <div class="slide-inner">
+    <p class="slide-label">Case Study: Add Service</p>
+    <div class="divider"></div>
+    <h2>Real Example: "Add SABnzbd to the Homelab"</h2>
+    <div class="two-col">
+      <div class="card-dark" style="padding:1.2rem;">
+        <p style="font-size:0.7rem;font-weight:700;letter-spacing:0.12em;color:var(--teal);text-transform:uppercase;margin-bottom:0.9rem;">Conversation</p>
+        <div class="chat-bubble you"><p class="who you">You</p><p class="msg">Add SABnzbd to the homelab.</p></div>
+        <div class="chat-bubble claude" style="margin-top:0.4rem;"><p class="who claude">Claude</p><p class="msg">Checking ports&hellip; 8787 is free. Image: linuxserver/sabnzbd &#10003;</p></div>
+        <div class="chat-bubble claude" style="margin-top:0.4rem;"><p class="who claude">Claude</p><p class="msg">Writing compose service definition...</p></div>
+        <div class="chat-bubble claude" style="margin-top:0.4rem;"><p class="who claude">Claude</p><p class="msg">Adding SABNZBD_HOST to .env.template...</p></div>
+        <div class="chat-bubble claude" style="margin-top:0.4rem;"><p class="who claude">Claude</p><p class="msg">Creating /share/appdata/sabnzbd on NAS01 via SSH...</p></div>
+        <div class="chat-bubble claude" style="margin-top:0.4rem;"><p class="who claude">Claude</p><p class="msg">Syncing compose file and starting container...</p></div>
+        <div class="chat-bubble claude" style="margin-top:0.4rem;"><p class="who claude">Claude</p><p class="msg">Adding NPM proxy host: sab.yourdomain.com &rarr; sabnzbd:8080</p></div>
+        <div class="chat-bubble claude" style="margin-top:0.4rem;"><p class="who claude">Claude</p><p class="msg">[OK] SABnzbd is up. Set as priority download client in Sonarr/Radarr?</p></div>
+      </div>
+      <div class="card">
+        <p style="font-size:0.7rem;font-weight:700;letter-spacing:0.12em;color:var(--teal);text-transform:uppercase;margin-bottom:0.9rem;">What the skill did</p>
+        <div style="display:flex;flex-direction:column;gap:0.4rem;">
+          <p style="font-size:0.85rem;color:var(--slateD);">&#10003; Checked port availability</p>
+          <p style="font-size:0.85rem;color:var(--slateD);">&#10003; Looked up best-practice image</p>
+          <p style="font-size:0.85rem;color:var(--slateD);">&#10003; Wrote compose service entry</p>
+          <p style="font-size:0.85rem;color:var(--slateD);">&#10003; Updated .env.template</p>
+          <p style="font-size:0.85rem;color:var(--slateD);">&#10003; SSH'd to NAS01, created appdata dir</p>
+          <p style="font-size:0.85rem;color:var(--slateD);">&#10003; SCP'd compose file to NAS01</p>
+          <p style="font-size:0.85rem;color:var(--slateD);">&#10003; Started container, verified health</p>
+          <p style="font-size:0.85rem;color:var(--slateD);">&#10003; Added NPM reverse proxy host</p>
+          <p style="font-size:0.85rem;color:var(--slateD);">&#10003; Prompted for Uptime Kuma monitor</p>
+          <p style="font-size:0.85rem;color:var(--slateD);">&#10003; Committed everything to GitHub</p>
+        </div>
+        <div style="margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border);">
+          <p style="font-size:0.8rem;color:var(--slate);font-style:italic;">The skill knows what questions to ask, what order to do things in, and what could go wrong &mdash; months of "what do I always forget?" baked into one workflow.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SLIDE 9: DR -->
+<section class="slide slide-dark" id="dr">
+  <div class="slide-inner">
+    <p class="slide-label">Disaster Recovery</p>
+    <div class="divider"></div>
+    <h2 style="color:white;">The Repo IS the DR</h2>
+    <p class="muted" style="margin-bottom:2rem;">If NAS01 catches fire, the whole stack is recoverable in &lt; 30 minutes</p>
+    <div class="stat-row">
+      <div class="stat-box"><span class="num">22 min</span><span class="label">Actual tested RTO</span><span class="sub">May 2026</span></div>
+      <div class="stat-box"><span class="num">156k</span><span class="label">Files restored</span><span class="sub">46 GB Duplicati backup</span></div>
+      <div class="stat-box"><span class="num">22</span><span class="label">Containers restored</span><span class="sub">History + config intact</span></div>
+      <div class="stat-box"><span class="num">3-2-1</span><span class="label">Backup rule</span><span class="sub">NAS02 local + Backblaze B2</span></div>
+    </div>
+    <div class="card-dark" style="margin-top:2rem;">
+      <p style="font-size:0.7rem;font-weight:700;letter-spacing:0.12em;color:var(--teal);text-transform:uppercase;margin-bottom:0.9rem;">How it works</p>
+      <p style="color:var(--slateL);margin-bottom:0.6rem;"><span style="color:var(--teal);font-weight:700;">1. </span>Copy <code class="inline-dark">~/.homelab.secrets</code> to new host</p>
+      <p style="color:var(--slateL);margin-bottom:0.6rem;"><span style="color:var(--teal);font-weight:700;">2. </span>Run <code class="inline-dark">dr/restore.sh</code> &mdash; installs Docker, mounts NFS, restores appdata from Duplicati, starts all 22 containers</p>
+      <p style="color:var(--slateL);"><span style="color:var(--teal);font-weight:700;">3. </span>Claude knows the whole procedure and can walk you through any failures step-by-step</p>
+    </div>
+  </div>
+</section>
+
+<!-- SLIDE 10: Get Started -->
+<section class="slide slide-light" id="start">
+  <div class="slide-inner">
+    <p class="slide-label">Get Started</p>
+    <div class="divider"></div>
+    <h2>What You Need to Start</h2>
+    <div class="card-grid cols-3">
+      <div class="card">
+        <div style="background:var(--teal);margin:-1.2rem -1.35rem 1rem;padding:0.7rem 1.35rem;border-radius:9px 9px 0 0;">
+          <h3 style="color:white;font-size:0.95rem;">The Model</h3>
+        </div>
+        <p style="font-size:0.87rem;margin-bottom:0.5rem;"><span style="color:var(--teal);font-weight:700;">&rarr; </span>Claude (claude.ai) with Cowork mode</p>
+        <p style="font-size:0.87rem;margin-bottom:0.5rem;"><span style="color:var(--teal);font-weight:700;">&rarr; </span>Free or Pro &mdash; works with either</p>
+        <p style="font-size:0.87rem;"><span style="color:var(--teal);font-weight:700;">&rarr; </span>Claude Code (CLI) if you prefer terminal</p>
+      </div>
+      <div class="card">
+        <div style="background:var(--teal);margin:-1.2rem -1.35rem 1rem;padding:0.7rem 1.35rem;border-radius:9px 9px 0 0;">
+          <h3 style="color:white;font-size:0.95rem;">The Repo</h3>
+        </div>
+        <p style="font-size:0.87rem;margin-bottom:0.5rem;"><span style="color:var(--teal);font-weight:700;">&rarr; </span>Fork or clone the homelab repo</p>
+        <p style="font-size:0.87rem;margin-bottom:0.5rem;"><span style="color:var(--teal);font-weight:700;">&rarr; </span>Adapt CLAUDE.md to your hardware</p>
+        <p style="font-size:0.87rem;"><span style="color:var(--teal);font-weight:700;">&rarr; </span>Update IPs, paths, service names</p>
+      </div>
+      <div class="card">
+        <div style="background:var(--teal);margin:-1.2rem -1.35rem 1rem;padding:0.7rem 1.35rem;border-radius:9px 9px 0 0;">
+          <h3 style="color:white;font-size:0.95rem;">The Skills</h3>
+        </div>
+        <p style="font-size:0.87rem;margin-bottom:0.5rem;"><span style="color:var(--teal);font-weight:700;">&rarr; </span>Install .skill files via Claude Desktop &rarr; Settings &rarr; Skills</p>
+        <p style="font-size:0.87rem;margin-bottom:0.5rem;"><span style="color:var(--teal);font-weight:700;">&rarr; </span>Customize trigger phrases</p>
+        <p style="font-size:0.87rem;"><span style="color:var(--teal);font-weight:700;">&rarr; </span>Add your own for your workflows</p>
+      </div>
+    </div>
+    <div class="tagline">
+      Time to first useful Claude homelab session: under 2 hours<br>
+      <span style="font-size:0.8rem;">The biggest investment is writing CLAUDE.md &mdash; valuable regardless of Claude</span>
+    </div>
+  </div>
+</section>
+
+<!-- SLIDE 11: Closing -->
+<section class="slide slide-dark">
+  <div class="slide-inner" style="text-align:center;">
+    <h1 style="font-size:clamp(1.5rem,4vw,2.5rem);line-height:1.35;margin-bottom:1.75rem;">
+      The homelab is more fun<br>when you're not the only one<br>who knows how it works.
+    </h1>
+    <p style="font-size:1rem;font-weight:700;color:var(--teal);font-family:'Courier New',monospace;margin-bottom:0.5rem;">
+      <a href="https://github.com/yourusername/homelab" style="color:var(--teal);text-decoration:none;">github.com/yourusername/homelab</a>
+    </p>
+    <p class="muted" style="margin-bottom:0.4rem;">CLAUDE.md template in the repo root</p>
+    <p class="muted" style="margin-bottom:2rem;">Skills in <code class="inline-dark">skills/</code> &mdash; install, adapt, share back</p>
+    <div class="badge-row" style="justify-content:center;">
+      <a href="dr/playbook.html" class="badge" style="text-decoration:none;">DR Playbook</a>
+      <a href="docs/homelab-baseline.html" class="badge" style="text-decoration:none;">Baseline</a>
+      <a href="https://github.com/yourusername/homelab" class="badge" style="text-decoration:none;" target="_blank">GitHub</a>
+      <a href="index.html" class="badge" style="text-decoration:none;">Home</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <a href="https://github.com/yourusername/homelab" target="_blank">github.com/yourusername/homelab</a>
+  &nbsp;&middot;&nbsp; Infrastructure as code, Claude-assisted
+</footer>
+
+</body>
+</html>
